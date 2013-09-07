@@ -87,6 +87,7 @@ Ext.define('CustomApp', {
     },
     
     _createGraph : function( snapshots ) {
+        
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
         var s = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Successors"));});
@@ -126,16 +127,7 @@ Ext.define('CustomApp', {
             height = 600;
         
         var color = d3.scale.category20();
-        
-        
-// var force = d3.layout.force()
-//     .nodes(d3.values(nodes))
-//     .links(links)
-//     .size([w, h])
-//     .linkDistance(60)
-//     .charge(-300)
-//     .on("tick", tick)
-//     .start();
+
         var svg = d3.select("body").insert("svg")
             .attr("width", width)
             .attr("height", height);
@@ -163,7 +155,6 @@ Ext.define('CustomApp', {
             .attr('d', 'M10,-5L0,0L10,5')
             .attr('fill', '#000');
 
-
         var force = d3.layout.force()
             .charge(-60)
             .linkDistance(30)
@@ -180,7 +171,7 @@ Ext.define('CustomApp', {
             .attr('class', 'link')
             .attr('marker-end', 'url(#end-arrow)');
 
-            // .style('marker-start', function(d) { return d.left ? 'url(#start-arrow)' : ''; })
+        // .style('marker-start', function(d) { return d.left ? 'url(#start-arrow)' : ''; })
         var circle = svg.append('svg:g').selectAll('g')
             .data(nodes, function(d) { return d.id; })
             .enter()
@@ -190,7 +181,6 @@ Ext.define('CustomApp', {
                 .attr('r', 5)
                 .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
             .call(force.drag);
-            
 
         force.on("tick", function() {
             path.attr('d', function(d) {
@@ -212,7 +202,5 @@ Ext.define('CustomApp', {
                 return 'translate(' + d.x + ',' + d.y + ')';
             });
         });
-        
     }
-
 });
