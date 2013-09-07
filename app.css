@@ -12,3 +12,10 @@
   stroke: #999;
   stroke-opacity: .6;
 }
+
+path.link {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1px;
+  cursor: default;
+}

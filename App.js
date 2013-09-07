@@ -68,8 +68,8 @@ Ext.define('CustomApp', {
                 },
                 scope: that
             },
-            fetch: ['ObjectID','_UnformattedID', 'Tags', '_User', '_TypeHierarchy', '_PreviousValues','Predecessors','Successors'],
-            hydrate: ['_TypeHierarchy'],
+            fetch: ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState'],
+            hydrate: ['_TypeHierarchy','ScheduleState'],
             filters : [filter]
         });
     },
@@ -90,8 +90,8 @@ Ext.define('CustomApp', {
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
         var s = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Successors"));});
-        console.log("p",p);
-        console.log("s",s);
+        console.log("p",p.length);
+        console.log("s",s.length);
 
         // create the set of node elements
         var nodes = _.map( snapshots, function(snap) {
@@ -122,52 +122,97 @@ Ext.define('CustomApp', {
     
     _forceDirectedGraph : function(nodes,links) {
 
-        console.log(nodes,links);
         var width = 1200,
             height = 600;
         
         var color = d3.scale.category20();
         
-        var force = d3.layout.force()
-            .charge(-40)
-            .linkDistance(10)
-            .size([width, height]);
-            
+        
+// var force = d3.layout.force()
+//     .nodes(d3.values(nodes))
+//     .links(links)
+//     .size([w, h])
+//     .linkDistance(60)
+//     .charge(-300)
+//     .on("tick", tick)
+//     .start();
         var svg = d3.select("body").insert("svg")
             .attr("width", width)
             .attr("height", height);
             
-        force
+        // define arrow markers for graph links
+        svg.append('svg:defs').append('svg:marker')
+            .attr('id', 'end-arrow')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 6)
+            .attr('markerWidth', 5)
+            .attr('markerHeight', 5)
+            .attr('orient', 'auto')
+          .append('svg:path')
+            .attr('d', 'M0,-5L10,0L0,5')
+            .attr('fill', '#000');
+
+        svg.append('svg:defs').append('svg:marker')
+            .attr('id', 'start-arrow')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 4)
+            .attr('markerWidth', 3)
+            .attr('markerHeight', 3)
+            .attr('orient', 'auto')
+          .append('svg:path')
+            .attr('d', 'M10,-5L0,0L10,5')
+            .attr('fill', '#000');
+
+
+        var force = d3.layout.force()
+            .charge(-60)
+            .linkDistance(30)
+            .size([width, height])
             .nodes(nodes)
             .links(links)
             .start();
-            
-        var link = svg.selectAll(".link")
+
+        // handles to link and node element groups
+        var path = svg.append('svg:g').selectAll('path')
             .data(links)
-            .enter().append("line")
-            .attr("class", "link")
-            .style("stroke-width", function(d) { return Math.sqrt(d.value); });
-            
-        var node = svg.selectAll(".node")
-            .data(nodes)
-            .enter().append("circle")
-            .attr("class", "node")
-            .attr("r", 5)
-            //   .style("fill", function(d) { return color(d.group); })
+            .enter()
+            .append('svg:path')
+            .attr('class', 'link')
+            .attr('marker-end', 'url(#end-arrow)');
+
+            // .style('marker-start', function(d) { return d.left ? 'url(#start-arrow)' : ''; })
+        var circle = svg.append('svg:g').selectAll('g')
+            .data(nodes, function(d) { return d.id; })
+            .enter()
+            .append('svg:g')
+            .append('svg:circle')
+                .attr('class', 'node')
+                .attr('r', 5)
+                .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
             .call(force.drag);
             
-        node.append("title")
-            .text(function(d) { return d.name; });
-            
+
         force.on("tick", function() {
-            link.attr("x1", function(d) { return d.source.x; })
-            .attr("y1", function(d) { return d.source.y; })
-            .attr("x2", function(d) { return d.target.x; })
-            .attr("y2", function(d) { return d.target.y; });
-            
-            node.attr("cx", function(d) { return d.x; })
-                .attr("cy", function(d) { return d.y; });
+            path.attr('d', function(d) {
+            var deltaX = d.target.x - d.source.x,
+                deltaY = d.target.y - d.source.y,
+                dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+                normX = deltaX / dist,
+                normY = deltaY / dist,
+                sourcePadding = 0, // d.left ? 17 : 12,
+                targetPadding = 8, // d.right ? 17 : 12,
+                sourceX = d.source.x + (sourcePadding * normX),
+                sourceY = d.source.y + (sourcePadding * normY),
+                targetX = d.target.x - (targetPadding * normX),
+                targetY = d.target.y - (targetPadding * normY);
+            return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
             });
+
+            circle.attr('transform', function(d) {
+                return 'translate(' + d.x + ',' + d.y + ')';
+            });
+        });
+        
     }
 
 });
