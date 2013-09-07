@@ -104,21 +104,74 @@ Ext.define('CustomApp', {
         });
         nodes = _.compact(nodes);
 
-        // create the links
-        var links = [];
+        // this._forceDirectedGraph(nodes,links);
+        this._findMissingSnapshots(nodes);
+    },
+    
+    _findMissingSnapshots : function(nodes) {
+        
+        var missing = [];        
+        var that = this;
         _.each(nodes, function(node) {
             _.each(node.snapshot.get("Predecessors"), function(pred) {
                 var target = _.find(nodes,function(node) { return node.id == pred;});
                 // may be undefined if pred is out of project scope, need to figure out how to deal with that
                 if (!_.isUndefined(target)) {
-                    links.push( 
-                        { source : node, target : target  }
-                    );
+                    missing.push(pred);
                 }
             });
         });
+        console.log("missing:",missing.length);
 
-        this._forceDirectedGraph(nodes,links);
+        // filter for just projects in scope and for current snapshots        
+        var filter = Ext.create('Rally.data.lookback.QueryFilter', {
+                property: 'ObjectID',
+                operator : 'in',
+                value : missing
+            }
+        );
+        filter = filter.and( Ext.create('Rally.data.lookback.QueryFilter', {
+                property: "_ValidTo",
+                operator : "=",
+                value : "9999-01-01T00:00:00Z"
+            }
+            )
+        );
+
+        Ext.create('Rally.data.lookback.SnapshotStore', {
+            autoLoad: true,
+            limit : "Infinity",
+            listeners: {
+                load: function(dataStore, records) {
+                    console.log("missing records found:",records.length);
+                    nodes.concat( _.map(records), function(rec) {
+                        return { id : rec.get("ObjectID"), snapshot : rec }; 
+                    });
+                    // create the links
+                    var links = [];
+                    var stillmissing = 0;
+                    _.each(nodes, function(node) {
+                        _.each(node.snapshot.get("Predecessors"), function(pred) {
+                            var target = _.find(nodes,function(node) { return node.id == pred;});
+                            // may be undefined if pred is out of project scope, need to figure out how to deal with that
+                            if (!_.isUndefined(target)) {
+                                links.push( 
+                                    { source : node, target : target  }
+                                );
+                            } else {
+                                console.log("Missing pred:",pred,node.snapshot.get("_UnformattedID"),stillmissing++);
+                            }
+                        });
+                    });
+
+                    this._forceDirectedGraph(nodes,links); 
+                },
+                scope: that
+            },
+            fetch: ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState'],
+            hydrate: ['_TypeHierarchy','ScheduleState'],
+            filters : [filter]
+        });
     },
     
     _forceDirectedGraph : function(nodes,links) {
@@ -128,10 +181,16 @@ Ext.define('CustomApp', {
         
         var color = d3.scale.category20();
 
-        var svg = d3.select("body").insert("svg")
+        var svg = d3.select("body").append("svg")
             .attr("width", width)
-            .attr("height", height);
+            .attr("height", height)
+            .on('mousemove', this.myMouseMoveFunction)
             
+        var div = d3.select("body")
+            .append("div")
+            .html("Some text")
+            .classed("infobox",true);
+
         // define arrow markers for graph links
         svg.append('svg:defs').append('svg:marker')
             .attr('id', 'end-arrow')
@@ -180,7 +239,9 @@ Ext.define('CustomApp', {
                 .attr('class', 'node')
                 .attr('r', 5)
                 .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
-            .call(force.drag);
+                .call(force.drag)
+                .on("mouseover", this.myMouseOverFunction)
+		    	.on("mouseout", this.myMouseOutFunction);  	
 
         force.on("tick", function() {
             path.attr('d', function(d) {
@@ -202,5 +263,35 @@ Ext.define('CustomApp', {
                 return 'translate(' + d.x + ',' + d.y + ')';
             });
         });
-    }
+    },
+    
+    // this will be ran whenever we mouse over a circle
+	myMouseOverFunction : function() {
+    	var circle = d3.select(this);
+    	circle.attr("fill", "red" );
+    	// show infobox div on mouseover.
+    	// block means sorta "render on the page" whereas none would mean "don't render at all"
+    	d3.select(".infobox").style("display", "block");	
+    	// add test to p tag in infobox
+    	d3.select("p").text("This circle has a radius of " + circle.attr("r") + " pixels.");
+    },
+    
+    myMouseOutFunction : function() {
+    	var circle = d3.select(this);
+    	circle.attr("fill", "steelblue" );
+    	// display none removes element totally, whereas visibilty in last example just hid it
+    	d3.select(".infobox").style("display", "none");	
+    },
+ 
+	myMouseMoveFunction : function() {
+    	// save selection of infobox so that we can later change it's position
+    	var infobox = d3.select(".infobox");
+    	// this returns x,y coordinates of the mouse in relation to our svg canvas
+    	//var coord = d3.svg.mouse(this)
+    	var coord = d3.mouse(this)
+    	// now we just position the infobox roughly where our mouse is
+    	infobox.style("left", coord[0] + 15  + "px" );
+    	infobox.style("top", coord[1] + "px");
+	}
+    
 });
