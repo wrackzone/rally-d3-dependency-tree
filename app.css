@@ -24,5 +24,9 @@ path.link {
         position: absolute;
         width: 200px;
         padding: 10px;
-        background-color: rgba(255,255,255,.75);
+        /*background-color: rgba(255,255,255,.75);*/
+        /*242	242	242	15921906*/
+        background: rgba(242, 242, 242, 0.9);
+        -moz-border-radius: 15px;
+        border-radius: 15px;
 }

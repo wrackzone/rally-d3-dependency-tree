@@ -68,7 +68,7 @@ Ext.define('CustomApp', {
                 },
                 scope: that
             },
-            fetch: ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState'],
+            fetch: ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name'],
             hydrate: ['_TypeHierarchy','ScheduleState'],
             filters : [filter]
         });
@@ -78,9 +78,11 @@ Ext.define('CustomApp', {
             var preds = snapshot.get("Predecessors");
             var that = this;
             if (_.isArray(preds)) {
-                var children = _.map(preds, function(pred) { return _.find( snapshots, function(snap) { 
-                    return pred == snap.get("ObjectID");
-                } ) })
+                var children = _.map(preds, function(pred) { 
+                    return _.find( snapshots, function(snap) { 
+                        return pred == snap.get("ObjectID");
+                    }); 
+                });
                 _.each(children, function(child) { that._fill(snapshots,child); });
                 snapshot.children = children;
             }
@@ -184,7 +186,7 @@ Ext.define('CustomApp', {
         var svg = d3.select("body").append("svg")
             .attr("width", width)
             .attr("height", height)
-            .on('mousemove', this.myMouseMoveFunction)
+            .on('mousemove', this.myMouseMoveFunction);
             
         var div = d3.select("body")
             .append("div")
@@ -241,7 +243,7 @@ Ext.define('CustomApp', {
                 .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
                 .call(force.drag)
                 .on("mouseover", this.myMouseOverFunction)
-		    	.on("mouseout", this.myMouseOutFunction);  	
+                .on("mouseout", this.myMouseOutFunction);  	
 
         force.on("tick", function() {
             path.attr('d', function(d) {
@@ -266,32 +268,35 @@ Ext.define('CustomApp', {
     },
     
     // this will be ran whenever we mouse over a circle
-	myMouseOverFunction : function() {
-    	var circle = d3.select(this);
-    	circle.attr("fill", "red" );
-    	// show infobox div on mouseover.
-    	// block means sorta "render on the page" whereas none would mean "don't render at all"
-    	d3.select(".infobox").style("display", "block");	
-    	// add test to p tag in infobox
-    	d3.select("p").text("This circle has a radius of " + circle.attr("r") + " pixels.");
+	myMouseOverFunction : function(d) {
+        var circle = d3.select(this);
+        console.log("circle",d);
+        circle.attr("fill", "red" );
+        // show infobox div on mouseover.
+        // block means sorta "render on the page" whereas none would mean "don't render at all"
+        var infobox = d3.select(".infobox");
+        infobox.style("display", "block");	
+        infobox.html( d.snapshot.get("_UnformattedID")+":"+d.snapshot.get("Name"));
+        // add test to p tag in infobox
+        d3.select("p").text("This circle has a radius of " + circle.attr("r") + " pixels.");
     },
     
     myMouseOutFunction : function() {
-    	var circle = d3.select(this);
-    	circle.attr("fill", "steelblue" );
-    	// display none removes element totally, whereas visibilty in last example just hid it
-    	d3.select(".infobox").style("display", "none");	
+        var circle = d3.select(this);
+        circle.attr("fill", "steelblue" );
+        // display none removes element totally, whereas visibilty in last example just hid it
+        d3.select(".infobox").style("display", "none");
     },
  
 	myMouseMoveFunction : function() {
-    	// save selection of infobox so that we can later change it's position
-    	var infobox = d3.select(".infobox");
-    	// this returns x,y coordinates of the mouse in relation to our svg canvas
-    	//var coord = d3.svg.mouse(this)
-    	var coord = d3.mouse(this)
-    	// now we just position the infobox roughly where our mouse is
-    	infobox.style("left", coord[0] + 15  + "px" );
-    	infobox.style("top", coord[1] + "px");
+        // save selection of infobox so that we can later change it's position
+        var infobox = d3.select(".infobox");
+        // this returns x,y coordinates of the mouse in relation to our svg canvas
+        //var coord = d3.svg.mouse(this)
+        var coord = d3.mouse(this)
+        // now we just position the infobox roughly where our mouse is
+        infobox.style("left", coord[0] + 15  + "px" );
+        infobox.style("top", coord[1] + "px");
 	}
     
 });
