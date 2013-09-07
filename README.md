@@ -1,4 +1,13 @@
-rally-d3-dependency-tree
-========================
+D3 Dependency Visualization
+===========================
 
-A D3 Dependency Tree For Rally
+## Overview
+
+Experiment!
+
+![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 1")
+
+
+## License
+
+AppTemplate is released under the MIT license.  See the file [LICENSE](https://raw.github.com/RallyApps/AppTemplate/master/LICENSE) for the full text.
