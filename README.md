@@ -5,7 +5,7 @@ D3 Dependency Visualization
 
 Experiment!
 
-![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 1")
+![alt text](https://raw.github.com/wrackzone/rally-d3-dependency-tree/master/screenshot.png)
 
 
 ## License
