@@ -161,7 +161,7 @@ Ext.define('CustomApp', {
                                     { source : node, target : target  }
                                 );
                             } else {
-                                console.log("Missing pred:",pred,node.snapshot.get("_UnformattedID"),stillmissing++);
+                                //console.log("Missing pred:",pred,node.snapshot.get("_UnformattedID"),stillmissing++);
                             }
                         });
                     });
@@ -270,7 +270,6 @@ Ext.define('CustomApp', {
     // this will be ran whenever we mouse over a circle
 	myMouseOverFunction : function(d) {
         var circle = d3.select(this);
-        console.log("circle",d);
         circle.attr("fill", "red" );
         // show infobox div on mouseover.
         // block means sorta "render on the page" whereas none would mean "don't render at all"
