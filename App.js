@@ -26,7 +26,8 @@ Ext.define('CustomApp', {
         // fields : ["ObjectID","_TypeHierarchy","Predecessors","Successors"],
         // hydrate: ["_TypeHierarchy"]
         // }
-        
+
+        // filter for just projects in scope and for current snapshots        
         var filter = Ext.create('Rally.data.lookback.QueryFilter', {
                 property: '_ProjectHierarchy',
                 operator : 'in',
@@ -41,6 +42,7 @@ Ext.define('CustomApp', {
             )
         );
 
+        // filter only if predecessors or successors are set
         var depFilter = Ext.create('Rally.data.lookback.QueryFilter', {
             property: 'Predecessors',
             operator: 'exists',
@@ -55,19 +57,13 @@ Ext.define('CustomApp', {
         );
         
         filter = filter.and(depFilter);
-        console.log("filter",filter.toObject());
 
         Ext.create('Rally.data.lookback.SnapshotStore', {
             autoLoad: true,
-            // limit : "Infinity",
+            limit : "Infinity",
             listeners: {
                 load: function(dataStore, records) {
-                    console.log("records",records);
-                    console.log("records",records.length);
-                    var p = _.filter(records,function(rec) { return _.isArray(rec.get("Predecessors"));}).length;
-                    var s = _.filter(records,function(rec) { return _.isArray(rec.get("Successors"));}).length;
-                    console.log("p",p);
-                    console.log("s",s);
+                    console.log("records:",records.length);
                     this._createGraph(records);
                 },
                 scope: that
@@ -94,7 +90,10 @@ Ext.define('CustomApp', {
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
         var s = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Successors"));});
+        console.log("p",p);
+        console.log("s",s);
 
+        // create the set of node elements
         var nodes = _.map( snapshots, function(snap) {
             if (_.isArray(snap.get("Predecessors"))||_.isArray(snap.get("Successors"))) {
                 return { id : snap.get("ObjectID"), snapshot : snap };
@@ -103,21 +102,19 @@ Ext.define('CustomApp', {
             }
         });
         nodes = _.compact(nodes);
-        
-        nodes.push({id: 0});
-        
+
+        // create the links
         var links = [];
         _.each(nodes, function(node) {
-            if ( !_.isUndefined(node.snapshot)) {
-                _.each(node.snapshot.get("Predecessors"), function(pred) {
-                    var target = _.find(nodes,function(node) { return node.id == pred;});
-                    if (!_.isUndefined(target)) {
-                        links.push( 
-                            { source : node, target : target  }
-                        );
-                    }
-                });
-            }
+            _.each(node.snapshot.get("Predecessors"), function(pred) {
+                var target = _.find(nodes,function(node) { return node.id == pred;});
+                // may be undefined if pred is out of project scope, need to figure out how to deal with that
+                if (!_.isUndefined(target)) {
+                    links.push( 
+                        { source : node, target : target  }
+                    );
+                }
+            });
         });
 
         this._forceDirectedGraph(nodes,links);
@@ -141,32 +138,32 @@ Ext.define('CustomApp', {
             .attr("height", height);
             
         force
-              .nodes(nodes)
-              .links(links)
-              .start();
+            .nodes(nodes)
+            .links(links)
+            .start();
             
-            var link = svg.selectAll(".link")
-              .data(links)
+        var link = svg.selectAll(".link")
+            .data(links)
             .enter().append("line")
-              .attr("class", "link")
-              .style("stroke-width", function(d) { return Math.sqrt(d.value); });
+            .attr("class", "link")
+            .style("stroke-width", function(d) { return Math.sqrt(d.value); });
             
-            var node = svg.selectAll(".node")
-              .data(nodes)
+        var node = svg.selectAll(".node")
+            .data(nodes)
             .enter().append("circle")
-              .attr("class", "node")
-              .attr("r", 5)
+            .attr("class", "node")
+            .attr("r", 5)
             //   .style("fill", function(d) { return color(d.group); })
-              .call(force.drag);
+            .call(force.drag);
             
-            node.append("title")
-              .text(function(d) { return d.name; });
+        node.append("title")
+            .text(function(d) { return d.name; });
             
-            force.on("tick", function() {
+        force.on("tick", function() {
             link.attr("x1", function(d) { return d.source.x; })
-                .attr("y1", function(d) { return d.source.y; })
-                .attr("x2", function(d) { return d.target.x; })
-                .attr("y2", function(d) { return d.target.y; });
+            .attr("y1", function(d) { return d.source.y; })
+            .attr("x2", function(d) { return d.target.x; })
+            .attr("y2", function(d) { return d.target.y; });
             
             node.attr("cx", function(d) { return d.x; })
                 .attr("cy", function(d) { return d.y; });
