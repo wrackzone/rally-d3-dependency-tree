@@ -1,78 +1,76 @@
+var app = null;
+
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    maxHeight : 50,
+    maxHeight : 5,
     
     items : [ { xtype : "container", itemId : "10" }
     
     ],
     
-    listeners : { render : function() {
-        console.log("rendered");
-    }},
-    
     launch: function() {
-        //Write app code here
-        this._createStore();
-        
+        app = this;
+
+        async.waterfall([ this.getDependencySnapshots,
+                          this.findMissingSnapshots,
+                          this._createGraph,
+                          this._forceDirectedGraph
+                          ], function(err,results){
+           console.log("results",results); 
+        });
+
     },
-    _createStore : function() {
+    
+    findMissingSnapshots : function( snapshots, callback ) {
+        var all = _.pluck(snapshots, function(s) { return s.get("ObjectID");});
+        
+        _.each(snapshots,function(s){
+            var pr = s.get("Predecessors");
+            var su = s.get("Successors");
+            if ( _.isArray(pr)) {
+                // console.log(_.difference( pr, all));
+            }
+            if ( _.isArray(su)) {
+                // console.log(_.difference( pr, all));
+            }
+        });
+        callback(null,snapshots);
+    },
+    
+    getDependencySnapshots : function( callback ) {
         var that = this;
-        
-        // {find:{ _ProjectHierarchy : { "$in": 380227538 } , 
-        //     _ValidTo : "9999-01-01T00:00:00Z", 
-        //     _TypeHierarchy : { "$in" : ["HierarchicalRequirement"]}, 
-        //     "$or" : [ {"Predecessors" : {"$exists" : true }} , {"Successors" : { "$exists" : true }}  ] },
-        // fields : ["ObjectID","_TypeHierarchy","Predecessors","Successors"],
-        // hydrate: ["_TypeHierarchy"]
-        // }
+        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name'];
+        var hydrate =  ['_TypeHierarchy','ScheduleState'];
 
-        // filter for just projects in scope and for current snapshots        
-        var filter = Ext.create('Rally.data.lookback.QueryFilter', {
-                property: '_ProjectHierarchy',
-                operator : 'in',
-                value : [that.getContext().getProject().ObjectID] // 5970178727
+        var find = {
+            '_TypeHierarchy' : { "$in" : ["HierarchicalRequirement"]} ,
+            '_ProjectHierarchy' : { "$in": app.getContext().getProject().ObjectID } , 
+            '__At' : 'current',
+            '$or' : [   
+                {"Predecessors" : { "$exists" : true }},
+                {"Successors" : { "$exists" : true }},
+            ]
+        };
+        
+        var storeConfig = {
+            find : find,
+            autoLoad : true,
+            pageSize:1000,
+            limit: 'Infinity',
+            fetch: fetch,
+            hydrate: hydrate,
+            listeners : {
+                scope : this,
+                load: function(store, snapshots, success) {
+                    callback(null,snapshots);
+                }
             }
-        );
-        filter = filter.and( Ext.create('Rally.data.lookback.QueryFilter', {
-                property: "_ValidTo",
-                operator : "=",
-                value : "9999-01-01T00:00:00Z"
-            }
-            )
-        );
-
-        // filter only if predecessors or successors are set
-        var depFilter = Ext.create('Rally.data.lookback.QueryFilter', {
-            property: 'Predecessors',
-            operator: 'exists',
-            value : true
-        });
-        
-        depFilter = depFilter.or( Ext.create('Rally.data.lookback.QueryFilter', {
-                property: 'Successors',
-                operator: 'exists',
-                value : true
-            })
-        );
-        
-        filter = filter.and(depFilter);
-
-        Ext.create('Rally.data.lookback.SnapshotStore', {
-            autoLoad: true,
-            limit : "Infinity",
-            listeners: {
-                load: function(dataStore, records) {
-                    console.log("records:",records.length);
-                    this._createGraph(records);
-                },
-                scope: that
-            },
-            fetch: ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name'],
-            hydrate: ['_TypeHierarchy','ScheduleState'],
-            filters : [filter]
-        });
+        };
+        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', storeConfig);
     },
+    
+
     
     _fill : function (snapshots, snapshot) {
             var preds = snapshot.get("Predecessors");
@@ -88,13 +86,10 @@ Ext.define('CustomApp', {
             }
     },
     
-    _createGraph : function( snapshots ) {
-        
+    _createGraph : function( snapshots, callback ) {
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
         var s = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Successors"));});
-        console.log("p",p.length);
-        console.log("s",s.length);
 
         // create the set of node elements
         var nodes = _.map( snapshots, function(snap) {
@@ -105,88 +100,35 @@ Ext.define('CustomApp', {
             }
         });
         nodes = _.compact(nodes);
-
-        // this._forceDirectedGraph(nodes,links);
-        this._findMissingSnapshots(nodes);
-    },
-    
-    _findMissingSnapshots : function(nodes) {
-        
-        var missing = [];        
-        var that = this;
+        var links = [];
         _.each(nodes, function(node) {
             _.each(node.snapshot.get("Predecessors"), function(pred) {
                 var target = _.find(nodes,function(node) { return node.id == pred;});
                 // may be undefined if pred is out of project scope, need to figure out how to deal with that
                 if (!_.isUndefined(target)) {
-                    missing.push(pred);
+                    links.push({ source : node, target : target  });
+                } else {
+                    console.log("unable to find pred:",pred);
                 }
             });
         });
-        console.log("missing:",missing.length);
+        callback(null,nodes,links);
 
-        // filter for just projects in scope and for current snapshots        
-        var filter = Ext.create('Rally.data.lookback.QueryFilter', {
-                property: 'ObjectID',
-                operator : 'in',
-                value : missing
-            }
-        );
-        filter = filter.and( Ext.create('Rally.data.lookback.QueryFilter', {
-                property: "_ValidTo",
-                operator : "=",
-                value : "9999-01-01T00:00:00Z"
-            }
-            )
-        );
-
-        Ext.create('Rally.data.lookback.SnapshotStore', {
-            autoLoad: true,
-            limit : "Infinity",
-            listeners: {
-                load: function(dataStore, records) {
-                    console.log("missing records found:",records.length);
-                    nodes.concat( _.map(records), function(rec) {
-                        return { id : rec.get("ObjectID"), snapshot : rec }; 
-                    });
-                    // create the links
-                    var links = [];
-                    var stillmissing = 0;
-                    _.each(nodes, function(node) {
-                        _.each(node.snapshot.get("Predecessors"), function(pred) {
-                            var target = _.find(nodes,function(node) { return node.id == pred;});
-                            // may be undefined if pred is out of project scope, need to figure out how to deal with that
-                            if (!_.isUndefined(target)) {
-                                links.push( 
-                                    { source : node, target : target  }
-                                );
-                            } else {
-                                //console.log("Missing pred:",pred,node.snapshot.get("_UnformattedID"),stillmissing++);
-                            }
-                        });
-                    });
-
-                    this._forceDirectedGraph(nodes,links); 
-                },
-                scope: that
-            },
-            fetch: ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState'],
-            hydrate: ['_TypeHierarchy','ScheduleState'],
-            filters : [filter]
-        });
+        // this._forceDirectedGraph(nodes,links);
+        // this._findMissingSnapshots(nodes);
     },
     
-    _forceDirectedGraph : function(nodes,links) {
-
+    _forceDirectedGraph : function(nodes,links,callback) {
+        
         var width = 1200,
-            height = 600;
+            height = 500;
         
         var color = d3.scale.category20();
 
         var svg = d3.select("body").append("svg")
             .attr("width", width)
             .attr("height", height)
-            .on('mousemove', this.myMouseMoveFunction);
+            .on('mousemove', app.myMouseMoveFunction);
             
         var div = d3.select("body")
             .append("div")
@@ -217,7 +159,7 @@ Ext.define('CustomApp', {
             .attr('fill', '#000');
 
         var force = d3.layout.force()
-            .charge(-60)
+            .charge(-120)
             .linkDistance(30)
             .size([width, height])
             .nodes(nodes)
@@ -242,8 +184,8 @@ Ext.define('CustomApp', {
                 .attr('r', 5)
                 .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
                 .call(force.drag)
-                .on("mouseover", this.myMouseOverFunction)
-                .on("mouseout", this.myMouseOutFunction);  	
+                .on("mouseover", app.myMouseOverFunction)
+                .on("mouseout", app.myMouseOutFunction);  	
 
         force.on("tick", function() {
             path.attr('d', function(d) {
@@ -269,6 +211,7 @@ Ext.define('CustomApp', {
     
     // this will be ran whenever we mouse over a circle
 	myMouseOverFunction : function(d) {
+	    console.log("mouseover");
         var circle = d3.select(this);
         circle.attr("fill", "red" );
         // show infobox div on mouseover.
