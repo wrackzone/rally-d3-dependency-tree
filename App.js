@@ -14,12 +14,72 @@ Ext.define('CustomApp', {
 
         async.waterfall([ this.getDependencySnapshots,
                           this.findMissingSnapshots,
+                          this.getProjectInformation,
+                          this.getIterationInformation,
                           this._createGraph,
                           this._forceDirectedGraph
                           ], function(err,results){
            console.log("results",results); 
         });
 
+    },
+
+    getProjectInformation : function( snapshots, callback) {
+
+        var projects = _.uniq(_.map( snapshots, function(s) { return s.get("Project"); }));
+
+        async.map( projects, app.readProject, function(err,results) {
+            app.projects = _.map(results,function(r) { return r[0]});
+            console.log("projects", app.projects);
+            callback(null,snapshots);
+        });
+    },
+
+    getIterationInformation : function( snapshots, callback) {
+
+        var iterations = _.uniq(_.map( snapshots, function(s) { return s.get("Iteration"); }));
+
+        console.log("iterations",iterations);
+
+        var readIteration = function( iid, callback) {
+
+            var config = { model : "Iteration", 
+                       fetch : ['Name','ObjectID','StartDate','EndDate'], 
+                       filters : [{property : "ObjectID", operator : "=", value : iid}]};
+            app.wsapiQuery(config,callback);
+        };
+
+        async.map( iterations, readIteration, function(err,results) {
+            app.iterations = _.map(results,function(r) { return r[0]});
+            console.log("iterations", app.iterations);
+            callback(null,snapshots);
+        });
+    },
+
+    readProject : function( pid, callback) {
+
+        var config = { model : "Project", 
+                       fetch : ['Name','ObjectID'], 
+                       filters : [{property : "ObjectID", operator : "=", value : pid}]};
+        app.wsapiQuery(config,callback);
+
+    },
+
+    wsapiQuery : function( config , callback ) {
+        Ext.create('Rally.data.WsapiDataStore', {
+            autoLoad : true,
+            limit : "Infinity",
+            model : config.model,
+            fetch : config.fetch,
+            filters : config.filters,
+            listeners : {
+                scope : this,
+                load : function(store, data) {
+                    console.log("wsapi:",data.length,data);
+                    callback(null,data);
+                }
+            }
+        });
     },
     
     findMissingSnapshots : function( snapshots, callback ) {
@@ -40,7 +100,7 @@ Ext.define('CustomApp', {
     
     getDependencySnapshots : function( callback ) {
         var that = this;
-        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name'];
+        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration'];
         var hydrate =  ['_TypeHierarchy','ScheduleState'];
 
         var find = {
@@ -69,8 +129,6 @@ Ext.define('CustomApp', {
         };
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', storeConfig);
     },
-    
-
     
     _fill : function (snapshots, snapshot) {
             var preds = snapshot.get("Predecessors");
@@ -117,6 +175,30 @@ Ext.define('CustomApp', {
         // this._forceDirectedGraph(nodes,links);
         // this._findMissingSnapshots(nodes);
     },
+
+    getProjectColor : function( color, pid ) {
+        var i = _.findIndex( app.projects, function(p) { return pid === p.get("ObjectID");} );
+        return color(i);
+    },
+
+    addColorLegend : function(color) {
+        var enter  = d3.select("body").select("svg")
+            .selectAll('g')
+            .data(app.projects, function(d,i) { return d.get("ObjectID"); })
+            .enter();
+
+        var divs = enter.append("g");
+
+        divs.append('svg:circle')
+                .attr('r', 5)
+                .attr('cx',20)
+                .attr('cy',function(d,i) { return (i+1)*20;})
+                .style("fill", function(d,i) { return color(i); })
+        divs.append('svg:text')
+                .attr('x',20+10)
+                .attr('y',function(d,i) { return ((i+1)*20)+3;})
+                .text(function(d,i) { return d.get("Name")});
+    },
     
     _forceDirectedGraph : function(nodes,links,callback) {
         
@@ -134,6 +216,8 @@ Ext.define('CustomApp', {
             .append("div")
             .html("Some text")
             .classed("infobox",true);
+
+        app.addColorLegend(color);
 
         // define arrow markers for graph links
         svg.append('svg:defs').append('svg:marker')
@@ -160,7 +244,7 @@ Ext.define('CustomApp', {
 
         var force = d3.layout.force()
             .charge(-120)
-            .linkDistance(30)
+            .linkDistance(50)
             .size([width, height])
             .nodes(nodes)
             .links(links)
@@ -174,7 +258,6 @@ Ext.define('CustomApp', {
             .attr('class', 'link')
             .attr('marker-end', 'url(#end-arrow)');
 
-        // .style('marker-start', function(d) { return d.left ? 'url(#start-arrow)' : ''; })
         var circle = svg.append('svg:g').selectAll('g')
             .data(nodes, function(d) { return d.id; })
             .enter()
@@ -182,10 +265,21 @@ Ext.define('CustomApp', {
             .append('svg:circle')
                 .attr('class', 'node')
                 .attr('r', 5)
-                .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
+                // .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
+                .style("fill", function(d) { return app.getProjectColor( color, d.snapshot.get("Project")); })
                 .call(force.drag)
                 .on("mouseover", app.myMouseOverFunction)
-                .on("mouseout", app.myMouseOutFunction);  	
+                .on("mouseout", app.myMouseOutFunction);
+
+        var circle1 = svg.append('svg:g').selectAll('g')
+            .data(nodes, function(d) { return d.id; })
+            .enter()
+            .append('svg:g')
+            .append('svg:circle')
+                .attr('class', 'node1')
+                .attr('r', 2)
+                .style("fill", "green")  
+                .call(force.drag);
 
         force.on("tick", function() {
             path.attr('d', function(d) {
@@ -194,8 +288,8 @@ Ext.define('CustomApp', {
                 dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
                 normX = deltaX / dist,
                 normY = deltaY / dist,
-                sourcePadding = 0, // d.left ? 17 : 12,
-                targetPadding = 8, // d.right ? 17 : 12,
+                sourcePadding = 10, // d.left ? 17 : 12,
+                targetPadding = 10, // d.right ? 17 : 12,
                 sourceX = d.source.x + (sourcePadding * normX),
                 sourceY = d.source.y + (sourcePadding * normY),
                 targetX = d.target.x - (targetPadding * normX),
@@ -206,6 +300,11 @@ Ext.define('CustomApp', {
             circle.attr('transform', function(d) {
                 return 'translate(' + d.x + ',' + d.y + ')';
             });
+
+            circle1.attr('transform', function(d) {
+                return 'translate(' + (d.x-6) + ',' + (d.y-6) + ')';
+            });
+
         });
     },
     
@@ -217,6 +316,12 @@ Ext.define('CustomApp', {
         // show infobox div on mouseover.
         // block means sorta "render on the page" whereas none would mean "don't render at all"
         var infobox = d3.select(".infobox");
+        // var coord = d3.svg.mouse(this)
+        var coord = d3.mouse(this)
+        // now we just position the infobox roughly where our mouse is
+        infobox.style("left", coord[0] + 15  + "px" );
+        infobox.style("top", coord[1] + "px");
+
         infobox.style("display", "block");	
         infobox.html( d.snapshot.get("_UnformattedID")+":"+d.snapshot.get("Name"));
         // add test to p tag in infobox
@@ -231,14 +336,6 @@ Ext.define('CustomApp', {
     },
  
 	myMouseMoveFunction : function() {
-        // save selection of infobox so that we can later change it's position
-        var infobox = d3.select(".infobox");
-        // this returns x,y coordinates of the mouse in relation to our svg canvas
-        //var coord = d3.svg.mouse(this)
-        var coord = d3.mouse(this)
-        // now we just position the infobox roughly where our mouse is
-        infobox.style("left", coord[0] + 15  + "px" );
-        infobox.style("top", coord[1] + "px");
 	}
     
 });

@@ -33,7 +33,6 @@ Ext.define('CustomApp', {
     },
     
     findMissingSnapshots : function( snapshots, callback ) {
-        console.log("findMissingSnapshots",snapshots);
         var all = _.pluck(snapshots, function(s) { return s.get("ObjectID");});
         
         _.each(snapshots,function(s){
@@ -46,14 +45,12 @@ Ext.define('CustomApp', {
                 // console.log(_.difference( pr, all));
             }
         });
-        console.log("calling callback",snapshots);
         callback(null,snapshots);
     },
     
     getDependencySnapshots : function( callback ) {
-        console.log("getDependencySnapshots");
         var that = this;
-        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState'];
+        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name'];
         var hydrate =  ['_TypeHierarchy','ScheduleState'];
 
         var find = {
@@ -66,8 +63,6 @@ Ext.define('CustomApp', {
             ]
         };
         
-        console.log(JSON.stringify(find));
-
         var storeConfig = {
             find : find,
             autoLoad : true,
@@ -78,8 +73,6 @@ Ext.define('CustomApp', {
             listeners : {
                 scope : this,
                 load: function(store, snapshots, success) {
-                    console.log("success",success);
-                    console.log("snapshots",snapshots.length);
                     callback(null,snapshots);
                 }
             }
@@ -104,12 +97,9 @@ Ext.define('CustomApp', {
     },
     
     _createGraph : function( snapshots, callback ) {
-        console.log("_createGraph",snapshots);
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
         var s = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Successors"));});
-        console.log("p",p.length);
-        console.log("s",s.length);
 
         // create the set of node elements
         var nodes = _.map( snapshots, function(snap) {
@@ -132,7 +122,6 @@ Ext.define('CustomApp', {
                 }
             });
         });
-        console.log("nodes",nodes,links);
         callback(null,nodes,links);
 
         // this._forceDirectedGraph(nodes,links);
@@ -141,9 +130,6 @@ Ext.define('CustomApp', {
     
     _forceDirectedGraph : function(nodes,links,callback) {
         
-        console.log("_forceDirectedGraph",nodes,links);
-        
-
         var width = 1200,
             height = 500;
         
@@ -152,7 +138,7 @@ Ext.define('CustomApp', {
         var svg = d3.select("body").append("svg")
             .attr("width", width)
             .attr("height", height)
-            .on('mousemove', this.myMouseMoveFunction);
+            .on('mousemove', app.myMouseMoveFunction);
             
         var div = d3.select("body")
             .append("div")
@@ -208,8 +194,8 @@ Ext.define('CustomApp', {
                 .attr('r', 5)
                 .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
                 .call(force.drag)
-                .on("mouseover", this.myMouseOverFunction)
-                .on("mouseout", this.myMouseOutFunction);  	
+                .on("mouseover", app.myMouseOverFunction)
+                .on("mouseout", app.myMouseOutFunction);  	
 
         force.on("tick", function() {
             path.attr('d', function(d) {
@@ -235,6 +221,7 @@ Ext.define('CustomApp', {
     
     // this will be ran whenever we mouse over a circle
 	myMouseOverFunction : function(d) {
+	    console.log("mouseover");
         var circle = d3.select(this);
         circle.attr("fill", "red" );
         // show infobox div on mouseover.
