@@ -17,6 +17,8 @@ Ext.define('CustomApp', {
                           this.getProjectInformation,
                           this.getIterationInformation,
                           this._createGraph,
+                          this._createNodeList,
+                          this._createNodeStatus,
                           this._forceDirectedGraph
                           ], function(err,results){
            console.log("results",results); 
@@ -51,6 +53,8 @@ Ext.define('CustomApp', {
 
         async.map( iterations, readIteration, function(err,results) {
             app.iterations = _.map(results,function(r) { return r[0]});
+
+            app.iterations = _.reject(app.iterations,function(i) {return (i=="")||_.isUndefined(i)});
             console.log("iterations", app.iterations);
             callback(null,snapshots);
         });
@@ -130,20 +134,6 @@ Ext.define('CustomApp', {
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', storeConfig);
     },
     
-    _fill : function (snapshots, snapshot) {
-            var preds = snapshot.get("Predecessors");
-            var that = this;
-            if (_.isArray(preds)) {
-                var children = _.map(preds, function(pred) { 
-                    return _.find( snapshots, function(snap) { 
-                        return pred == snap.get("ObjectID");
-                    }); 
-                });
-                _.each(children, function(child) { that._fill(snapshots,child); });
-                snapshot.children = children;
-            }
-    },
-    
     _createGraph : function( snapshots, callback ) {
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
@@ -172,8 +162,78 @@ Ext.define('CustomApp', {
         });
         callback(null,nodes,links);
 
-        // this._forceDirectedGraph(nodes,links);
-        // this._findMissingSnapshots(nodes);
+    },
+
+    // recursive method to walk the list of links
+    _createLinkListForNode : function( node, list, nodes, links ) {
+
+        list.push(node);
+        // console.log(" walk to node:",node.id);
+        var nodeLinks = _.filter(links,function(link) { return link.source.id === node.id; });
+        // console.log("\tlinks:", _.map(nodeLinks,function(n){return n.target.id;}));
+        _.each(nodeLinks, function(ln) {
+            app._createLinkListForNode( ln.target, list, nodes, links);
+        })
+
+    },
+
+    _createNodeList : function( nodes, links, callback ) {
+
+        _.each(nodes, function(node) {
+            // console.log("node:",node.id);
+            var list = [];
+            app._createLinkListForNode( node, list, nodes, links );
+            // console.log("List:",_.map(list,function(l){return l.id;}));
+            node.list = list;
+        });
+
+        callback(null,nodes, links);
+
+    },
+
+    // the status for the node is based on its downstream dependencies in the list
+    _createNodeStatus : function( nodes, links, callback ) {
+
+        _.each(nodes, function(node) {
+            _.each( node.list, function(listNode,i) {
+                node.status = [];
+                if (i > 0) {
+                    var status = app._createStatusForNodes( node, listNode );
+                    if ( status !== "Green" )
+                        node.status.push({ status : status, target : listNode });
+                }
+            });
+        });
+        callback( null, nodes, links );
+    },
+
+    _iterationEndDate : function(iid) {
+
+        // console.log(iid);
+
+        var iteration = _.find( app.iterations,
+            function(it){
+                console.log("iid",iid,it.get("ObjectID"));
+                return (iid === it.get("ObjectID"));
+            });
+        return iteration ? iteration.get("EndDate") : null;
+
+    },
+
+    _createStatusForNodes : function( src, tgt ) {
+
+        // is scheduled ? 
+        var srcIteration = src.snapshot.get("Iteration");
+        var tgtIteration = tgt.snapshot.get("Iteration");
+        if ( _.isUndefined(tgtIteration) || _.isNull(tgtIteration) )
+            return "Yellow";
+        // late ?
+        if (!( _.isUndefined(srcIteration) || _.isNull(srcIteration)) &&
+            !( _.isUndefined(tgtIteration) || _.isNull(tgtIteration))) {
+            if ( app._iterationEndDate(tgtIteration) > app._iterationEndDate(srcIteration) )
+                return "Red";
+        }
+
     },
 
     getProjectColor : function( color, pid ) {
@@ -182,6 +242,7 @@ Ext.define('CustomApp', {
     },
 
     addColorLegend : function(color) {
+
         var enter  = d3.select("body").select("svg")
             .selectAll('g')
             .data(app.projects, function(d,i) { return d.get("ObjectID"); })
