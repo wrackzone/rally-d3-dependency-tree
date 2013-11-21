@@ -21,6 +21,7 @@ path.link {
 }
 
 .infobox {
+        margin-top : 20px;
         position: absolute;
         width: 200px;
         padding: 10px;
@@ -29,4 +30,43 @@ path.link {
         background: rgba(242, 242, 242, 0.9);
         -moz-border-radius: 15px;
         border-radius: 15px;
+}
+
+.title {
+  font-weight:bold;
+  text-align : center;
+
+}
+
+.item {
+  /*font-weight:bold;*/
+  text-align : left;
+  padding:5px;
+  -moz-border-radius: 15px;
+  margin-top:5px;
+  /*border-radius: 15px;*/
+  /*background: rgba(242, 242, 255, 0.9);*/
+  
+}
+
+.type1 {
+    width: 10px;
+    height: 10px;
+    background: yellow;
+    border: 3px solid red
+}
+
+.circleBase {
+    -webkit-border-radius: 999px;
+    -moz-border-radius: 999px;
+    border-radius: 999px;
+    behavior: url(PIE.htc);
+}
+
+
+.svg {
+  position: relative;
+}
+.color-legend {
+  float:right;
 }

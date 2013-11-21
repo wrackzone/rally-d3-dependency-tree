@@ -28,10 +28,12 @@ Ext.define('CustomApp', {
 
     getProjectInformation : function( snapshots, callback) {
 
-        var projects = _.uniq(_.map( snapshots, function(s) { return s.get("Project"); }));
-
+        var projects = _.compact(_.uniq(_.map( snapshots, function(s) { return s.get("Project"); })));
+        // console.log("project oids:",projects);
+        // var ss = _.filter(snapshots, function(s) { return s.get("Project")==projects[0];});
+        // console.log("strange snapshots",ss);
         async.map( projects, app.readProject, function(err,results) {
-            app.projects = _.map(results,function(r) { return r[0]});
+            app.projects = _.compact(_.map(results,function(r) { return r[0]}));
             console.log("projects", app.projects);
             callback(null,snapshots);
         });
@@ -79,7 +81,7 @@ Ext.define('CustomApp', {
             listeners : {
                 scope : this,
                 load : function(store, data) {
-                    console.log("wsapi:",data.length,data);
+                    // console.log("wsapi:",data.length,data);
                     callback(null,data);
                 }
             }
@@ -127,6 +129,7 @@ Ext.define('CustomApp', {
             listeners : {
                 scope : this,
                 load: function(store, snapshots, success) {
+                    console.log("snapshots:",snapshots.length);
                     callback(null,snapshots);
                 }
             }
@@ -207,17 +210,21 @@ Ext.define('CustomApp', {
         callback( null, nodes, links );
     },
 
-    _iterationEndDate : function(iid) {
-
-        // console.log(iid);
+    _getIteration : function(iid) {
 
         var iteration = _.find( app.iterations,
             function(it){
-                console.log("iid",iid,it.get("ObjectID"));
+                // console.log("iid",iid,it.get("ObjectID"));
                 return (iid === it.get("ObjectID"));
             });
-        return iteration ? iteration.get("EndDate") : null;
 
+        return iteration;
+
+    },
+
+    _iterationEndDate : function(iid) {
+        var iteration = app._getIteration(iid);
+        return iteration ? iteration.get("EndDate") : null;
     },
 
     _createStatusForNodes : function( src, tgt ) {
@@ -225,27 +232,56 @@ Ext.define('CustomApp', {
         // is scheduled ? 
         var srcIteration = src.snapshot.get("Iteration");
         var tgtIteration = tgt.snapshot.get("Iteration");
-        if ( _.isUndefined(tgtIteration) || _.isNull(tgtIteration) )
-            return "Yellow";
+        if ( _.isUndefined(tgtIteration) || _.isNull(tgtIteration) || tgtIteration === "" )
+            return "yellow";
         // late ?
         if (!( _.isUndefined(srcIteration) || _.isNull(srcIteration)) &&
             !( _.isUndefined(tgtIteration) || _.isNull(tgtIteration))) {
             if ( app._iterationEndDate(tgtIteration) > app._iterationEndDate(srcIteration) )
-                return "Red";
+                return "red";
         }
 
+        return "green";
+
     },
 
-    getProjectColor : function( color, pid ) {
-        var i = _.findIndex( app.projects, function(p) { return pid === p.get("ObjectID");} );
-        return color(i);
+    _nodeStatusStyle : function( node ) {
+
+        var red = _.find(node.status,function(s) { return s.status == "red";});
+        if (red)
+            return 'red';
+        var yellow = _.find(node.status,function(s) { return s.status == "yellow";});
+        if (yellow)
+            return 'yellow';
+
+        return 'green';
+
     },
 
-    addColorLegend : function(color) {
+    _linkStatusStyle : function ( link ) {
 
-        var enter  = d3.select("body").select("svg")
+        var status = app._createStatusForNodes( link.source, link.target );
+
+        return status;
+    },
+
+    getProjectColor : function( pid ) {
+        var i = _.findIndex( app.projects, function(p) { return !_.isUndefined(p) ? pid === p.get("ObjectID") : false;} );
+        return app.color(i);
+    },
+
+    addColorLegend : function(color,w,h) {
+
+        var div = d3.select("body").select("svg")
+            .append("svg:g")
+            .attr("class","color-legend")
+            .attr("transform","translate(" + ((w/5)*4) +",20)");
+
+        // console.log("select",d3.select("body").select("svg").select(".color-legend"));
+
+        var enter  = d3.select("body").select("svg").select(".color-legend")
             .selectAll('g')
-            .data(app.projects, function(d,i) { return d.get("ObjectID"); })
+            .data(app.projects, function(d,i) { return !_.isUndefined(d) ? d.get("ObjectID") : ""; })
             .enter();
 
         var divs = enter.append("g");
@@ -258,17 +294,20 @@ Ext.define('CustomApp', {
         divs.append('svg:text')
                 .attr('x',20+10)
                 .attr('y',function(d,i) { return ((i+1)*20)+3;})
-                .text(function(d,i) { return d.get("Name")});
+                .text(function(d,i) { return !_.isUndefined(d) ? d.get("Name") : ""});
+
+
     },
     
     _forceDirectedGraph : function(nodes,links,callback) {
         
         var width = 1200,
-            height = 500;
+            height = 800;
         
-        var color = d3.scale.category20();
+        app.color = d3.scale.category20b();
 
         var svg = d3.select("body").append("svg")
+            .attr("class","svg")
             .attr("width", width)
             .attr("height", height)
             .on('mousemove', app.myMouseMoveFunction);
@@ -278,7 +317,7 @@ Ext.define('CustomApp', {
             .html("Some text")
             .classed("infobox",true);
 
-        app.addColorLegend(color);
+        app.addColorLegend(app.color,width,height);
 
         // define arrow markers for graph links
         svg.append('svg:defs').append('svg:marker')
@@ -304,8 +343,8 @@ Ext.define('CustomApp', {
             .attr('fill', '#000');
 
         var force = d3.layout.force()
-            .charge(-120)
-            .linkDistance(50)
+            .charge(-90)
+            .linkDistance(30)
             .size([width, height])
             .nodes(nodes)
             .links(links)
@@ -317,7 +356,15 @@ Ext.define('CustomApp', {
             .enter()
             .append('svg:path')
             .attr('class', 'link')
+            .attr('stroke-dasharray', function(d) {
+                var status = app._linkStatusStyle(d);
+                return status == "red" ? "2,2" : ""; 
+            })
             .attr('marker-end', 'url(#end-arrow)');
+
+        var statusNodes = _.filter(nodes, function(n) { 
+            return app._nodeStatusStyle(n) !== "green";
+        });
 
         var circle = svg.append('svg:g').selectAll('g')
             .data(nodes, function(d) { return d.id; })
@@ -327,19 +374,20 @@ Ext.define('CustomApp', {
                 .attr('class', 'node')
                 .attr('r', 5)
                 // .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
-                .style("fill", function(d) { return app.getProjectColor( color, d.snapshot.get("Project")); })
+                .style("fill", function(d) { return app.getProjectColor( d.snapshot.get("Project")); })
                 .call(force.drag)
                 .on("mouseover", app.myMouseOverFunction)
-                .on("mouseout", app.myMouseOutFunction);
+                .on("mouseout", app.myMouseOutFunction)
+                .on("click", app.myMouseClick);
 
         var circle1 = svg.append('svg:g').selectAll('g')
-            .data(nodes, function(d) { return d.id; })
+            .data(statusNodes, function(d) { return d.id; })
             .enter()
             .append('svg:g')
             .append('svg:circle')
                 .attr('class', 'node1')
                 .attr('r', 2)
-                .style("fill", "green")  
+                .style("fill", function(d) { return app._nodeStatusStyle(d);})  
                 .call(force.drag);
 
         force.on("tick", function() {
@@ -364,14 +412,56 @@ Ext.define('CustomApp', {
 
             circle1.attr('transform', function(d) {
                 return 'translate(' + (d.x-6) + ',' + (d.y-6) + ')';
+                //return 'translate(' + d.x + ',' + d.y + ')';
             });
 
         });
+
+        callback(null,nodes,links);
+    },
+
+    _createStoryDetails : function( node ) {
+
+        var s = node.snapshot;
+        var box = d3.select(".infobox");
+
+        box.html("");
+        box.append("div").attr("class","title").html("S"+s.get("_UnformattedID")+":"+s.get("Name"));
+
+        _.each( node.list.slice(1), function(d) {
+            var ds = d.snapshot;
+            var color = app.getProjectColor(ds.get("Project"));
+            var iteration = app._getIteration(ds.get("Iteration"));
+            var iterationName = iteration ? iteration.get("Name") : "";
+            var iterationEnd  = iteration ? iteration.get("EndDate") : "";
+            var m = iteration ? moment(iterationEnd).format("(MMM DD)") : "";
+
+            //box.append("div").attr("class","item").attr("style","color:white;background-color:"+color+";").html("S"+ds.get("_UnformattedID")+":"+ds.get("Name"));
+            
+            var item = box
+                .append("div")
+                    .attr("class","item")
+                    .attr("style","color:white;background-color:"+color+";")
+                    .html("S"+ds.get("_UnformattedID")+":"+ds.get("Name"));
+            item.append("div").attr("style","color:white;background-color:red;").html( ds.get("Blocked") ? "Blocked":"");
+
+            var itStatus = app._createStatusForNodes(node,d);
+            var textColor = itStatus === "yellow" ? "black" : "white";
+            console.log("status check:",node.snapshot.get("_UnformattedID"),d,itStatus);
+            var itMessage = iteration ? iteration.get("Name") + " " + m : "Unscheduled";
+            item.append("div").html(itMessage).attr("style","color:"+textColor+";background-color:"+itStatus+";");
+        })
+
+
+    },
+
+    myMouseClick : function(d) {
+        console.log("click:",d);
+        app._createStoryDetails(d);
     },
     
     // this will be ran whenever we mouse over a circle
 	myMouseOverFunction : function(d) {
-	    console.log("mouseover");
         var circle = d3.select(this);
         circle.attr("fill", "red" );
         // show infobox div on mouseover.
@@ -390,10 +480,10 @@ Ext.define('CustomApp', {
     },
     
     myMouseOutFunction : function() {
-        var circle = d3.select(this);
-        circle.attr("fill", "steelblue" );
-        // display none removes element totally, whereas visibilty in last example just hid it
-        d3.select(".infobox").style("display", "none");
+        // var circle = d3.select(this);
+        // circle.attr("fill", "steelblue" );
+        // // display none removes element totally, whereas visibilty in last example just hid it
+        // d3.select(".infobox").style("display", "none");
     },
  
 	myMouseMoveFunction : function() {
