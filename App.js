@@ -19,7 +19,11 @@ Ext.define('CustomApp', {
                           this._createGraph,
                           this._createNodeList,
                           this._createNodeStatus,
-                          this._forceDirectedGraph
+                          this._createDagreGraph
+                          // this._createGraph,
+                          // this._createNodeList,
+                          // this._createNodeStatus,
+                          // this._forceDirectedGraph
                           ], function(err,results){
            console.log("results",results); 
         });
@@ -106,7 +110,7 @@ Ext.define('CustomApp', {
     
     getDependencySnapshots : function( callback ) {
         var that = this;
-        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration'];
+        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
         var hydrate =  ['_TypeHierarchy','ScheduleState'];
 
         var find = {
@@ -136,7 +140,71 @@ Ext.define('CustomApp', {
         };
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', storeConfig);
     },
+
+    _renderNodeLabel : function( node ) {
+
+        console.log("node",node);
+        // get the project name
+        var project = _.find(app.projects, function(p) { 
+            return node.snapshot.get("Project") === p.get("ObjectID");
+        });
+
+        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        var style = null;
+        if (iterationEndDate) {
+            if (node.status.length > 0)
+                style = "color:white;background-color:"+node.status[0].status;
+        }
+        
+
+        return "<table class='graph-node'>" + 
+                "<tr><td>" + 
+                node.snapshot.get("FormattedID") + ":" + node.snapshot.get("Name") +
+                "</td></tr>" + 
+                "<tr><td>" + 
+                "Project:"+ project.get("Name") +
+                "</td></tr>" + 
+                "<tr><td style='"+(style ? style : '')+"' >" + 
+                (iterationEndDate ? iterationEndDate : "") +
+                "</td></tr>" + 
+
+
+               "</tr></table>"
+
+    },
     
+    _createDagreGraph : function( nodes, links ) {
+
+        var g = new dagre.Digraph();
+
+        _.each(nodes, function(node){
+            console.log(node);
+            //g.addNode(node.id, { label : node.snapshot.get("Name")});
+            g.addNode(node.id, { label : app._renderNodeLabel(node)});
+        });
+
+        _.each(links, function(link){
+            g.addEdge(null, link.source.id, link.target.id, {label:""});
+        });
+
+        var width = 1200,
+            height = 800;
+
+        // d3 rendering
+        var svg = d3.select("body").append("svg")
+            .attr("class","svg")
+            .attr("width", width)
+            .attr("height", height)
+                .append("g")
+                .attr("transform","translate(20,20)");
+            // .on('mousemove', app.myMouseMoveFunction);
+
+        var renderer = new dagreD3.Renderer();
+        renderer.run(g, d3.select("svg g"));
+
+    },
+
+
     _createGraph : function( snapshots, callback ) {
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});

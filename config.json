@@ -7,7 +7,9 @@
       "App.js",
       "d3.min.js",
       "lib/moment.js",
-      "lib/async.js"
+      "lib/async.js",
+      "lib/dagre.min.js",
+      "lib/dagre-d3.min.js"
    ],
    "css": [
       "app.css"
