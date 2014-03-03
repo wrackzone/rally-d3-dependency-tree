@@ -20,6 +20,9 @@ Ext.define('CustomApp', {
     
     launch: function() {
         app = this;
+        app.container_id = this.down("container").id;
+
+        console.log(this.down("container").id);
 
         async.waterfall([ this.getDependencySnapshots,
                           this.findMissingSnapshots,
@@ -28,7 +31,11 @@ Ext.define('CustomApp', {
                           this._createGraph,
                           this._createNodeList,
                           this._createNodeStatus,
-                          this._forceDirectedGraph
+                          this._createDagreGraph
+                          // this._createGraph,
+                          // this._createNodeList,
+                          // this._createNodeStatus,
+                          // this._forceDirectedGraph
                           ], function(err,results){
            console.log("results",results); 
         });
@@ -115,7 +122,7 @@ Ext.define('CustomApp', {
     
     getDependencySnapshots : function( callback ) {
         var that = this;
-        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration'];
+        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
         var hydrate =  ['_TypeHierarchy','ScheduleState'];
 
         var find = {
@@ -145,24 +152,70 @@ Ext.define('CustomApp', {
         };
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', storeConfig);
     },
+
+    _renderNodeLabel : function( node ) {
+
+        console.log("node",node);
+        // get the project name
+        var project = _.find(app.projects, function(p) { 
+            return node.snapshot.get("Project") === p.get("ObjectID");
+        });
+
+        if (_.isUndefined(project)||_.isNull(project)) {
+            console.log("problem with project for:",node);
+        }
+
+        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        var style = null;
+        if (iterationEndDate) {
+            if (node.status.length > 0)
+                style = "color:white;background-color:"+node.status[0].status;
+        }
+
+        var idstyle = ""
+        console.log("State:",node.snapshot.get("FormattedID"),node.snapshot.get("ScheduleState"));
+        if (node.snapshot.get("ScheduleState")==="Accepted") {
+
+            //idstyle = "color:black;background-color:00FF66"
+            idstyle="accepted-story";
+        }
+
+        return "<table class='graph-node'>" + 
+                "<tr><td>" + "<span class="+idstyle+">" + 
+                node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
+                "</td></tr>" + 
+                "<tr><td>" + 
+                "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
+                "</td></tr>" + 
+                "<tr><td style='"+(style ? style : '')+"' >" + 
+                (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +
+                "</td></tr>" + 
+
+
+               "</tr></table>"
+
+    },
     
     _createDagreGraph : function( nodes, links ) {
 
         var g = new dagre.Digraph();
 
         _.each(nodes, function(node){
-            g.addNode(node.id, { label : node.snapshot.get("Name")});
+            console.log(node);
+            //g.addNode(node.id, { label : node.snapshot.get("Name")});
+            g.addNode(node.id, { label : app._renderNodeLabel(node)});
         });
 
         _.each(links, function(link){
             g.addEdge(null, link.source.id, link.target.id, {label:""});
         });
 
-        var width = 1200,
+        var width = 8000,
             height = 800;
 
         // d3 rendering
-        var svg = d3.select("body").append("svg")
+        var svg = d3.select("body").append("div").attr("class","div-container").append("svg")
+        // var svg = d3.select(app.container_id).append("svg")
             .attr("class","svg")
             .attr("width", width)
             .attr("height", height)
@@ -263,7 +316,7 @@ Ext.define('CustomApp', {
 
     _iterationEndDate : function(iid) {
         var iteration = app._getIteration(iid);
-        return iteration ? iteration.get("EndDate") : null;
+        return iteration ? iteration.raw.EndDate : null;
     },
 
     _createStatusForNodes : function( src, tgt ) {
@@ -562,8 +615,23 @@ outEdges=function(a,b){this._strictGetNode(a);var c=f.union(d.values(this._outEd
 
 }
 
-svg {
-    overflow: hidden;
+.div-container {
+    width: 1200;
+    height: 800;
+    overflow: scroll;
+}
+
+
+/*.svg {
+    overflow: auto;
+}
+*/
+.graph-node {
+  padding : 50px;
+  margin: 5px;
+  width: 100;
+  height: 100;
+
 }
 
 .node rect {
@@ -580,6 +648,11 @@ svg {
     stroke: #333;
     stroke-width: 1.5px;
     fill: none;
+}
+
+.accepted-story {
+  color:white;
+  background-color:green;
 }
 
 /*

@@ -11,10 +11,14 @@ Ext.define('CustomApp', {
     
     launch: function() {
         app = this;
+        app.container_id = this.down("container").id;
+
+        console.log(this.down("container").id);
 
         async.waterfall([ this.getDependencySnapshots,
                           this.findMissingSnapshots,
                           this.getProjectInformation,
+                          this.cleanUpSnapshots,
                           this.getIterationInformation,
                           this._createGraph,
                           this._createNodeList,
@@ -39,8 +43,29 @@ Ext.define('CustomApp', {
         async.map( projects, app.readProject, function(err,results) {
             app.projects = _.compact(_.map(results,function(r) { return r[0]}));
             console.log("projects", app.projects);
+            console.log("closed projects:", 
+                _.filter(app.projects,function(p){
+                    return p.get("State")==="Closed";
+                })
+            );
             callback(null,snapshots);
         });
+    },
+
+    cleanUpSnapshots : function( snapshots, callback) {
+
+        var snapshots = _.filter(snapshots,function(snapshot) {
+            // make sure the project for the snapshot exists
+            var project = _.find(app.projects, function(p) { 
+                return snapshot.get("Project") === p.get("ObjectID");
+            });
+
+            return !(_.isUndefined(project)||_.isNull(project));
+        });
+        console.log("filtered snapshots:",snapshots.length);
+
+        callback(null,snapshots);
+
     },
 
     getIterationInformation : function( snapshots, callback) {
@@ -69,7 +94,7 @@ Ext.define('CustomApp', {
     readProject : function( pid, callback) {
 
         var config = { model : "Project", 
-                       fetch : ['Name','ObjectID'], 
+                       fetch : ['Name','ObjectID','State'], 
                        filters : [{property : "ObjectID", operator : "=", value : pid}]};
         app.wsapiQuery(config,callback);
 
@@ -143,11 +168,14 @@ Ext.define('CustomApp', {
 
     _renderNodeLabel : function( node ) {
 
-        console.log("node",node);
         // get the project name
         var project = _.find(app.projects, function(p) { 
             return node.snapshot.get("Project") === p.get("ObjectID");
         });
+
+        if (_.isUndefined(project)||_.isNull(project)) {
+            console.log("problem with project for:",node);
+        }
 
         var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
         var style = null;
@@ -155,17 +183,23 @@ Ext.define('CustomApp', {
             if (node.status.length > 0)
                 style = "color:white;background-color:"+node.status[0].status;
         }
-        
+
+        var idstyle = ""
+        if (node.snapshot.get("ScheduleState")==="Accepted") {
+
+            //idstyle = "color:black;background-color:00FF66"
+            idstyle="accepted-story";
+        }
 
         return "<table class='graph-node'>" + 
-                "<tr><td>" + 
-                node.snapshot.get("FormattedID") + ":" + node.snapshot.get("Name") +
+                "<tr><td>" + "<span class="+idstyle+">" + 
+                node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
                 "</td></tr>" + 
                 "<tr><td>" + 
-                "Project:"+ project.get("Name") +
+                "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
                 "</td></tr>" + 
                 "<tr><td style='"+(style ? style : '')+"' >" + 
-                (iterationEndDate ? iterationEndDate : "") +
+                (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +
                 "</td></tr>" + 
 
 
@@ -178,7 +212,6 @@ Ext.define('CustomApp', {
         var g = new dagre.Digraph();
 
         _.each(nodes, function(node){
-            console.log(node);
             //g.addNode(node.id, { label : node.snapshot.get("Name")});
             g.addNode(node.id, { label : app._renderNodeLabel(node)});
         });
@@ -187,11 +220,12 @@ Ext.define('CustomApp', {
             g.addEdge(null, link.source.id, link.target.id, {label:""});
         });
 
-        var width = 1200,
-            height = 800;
+        var width = 32000,
+            height = 32000;
 
         // d3 rendering
-        var svg = d3.select("body").append("svg")
+        var svg = d3.select("body").append("div").attr("class","div-container").append("svg")
+        // var svg = d3.select(app.container_id).append("svg")
             .attr("class","svg")
             .attr("width", width)
             .attr("height", height)
@@ -292,7 +326,7 @@ Ext.define('CustomApp', {
 
     _iterationEndDate : function(iid) {
         var iteration = app._getIteration(iid);
-        return iteration ? iteration.get("EndDate") : null;
+        return iteration ? iteration.raw.EndDate : null;
     },
 
     _createStatusForNodes : function( src, tgt ) {
