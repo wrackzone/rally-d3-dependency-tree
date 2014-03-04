@@ -6,7 +6,7 @@
    "javascript": [
       "App.js",
       "d3.min.js",
-      "lib/moment.js",
+      "lib/moment.min.js",
       "lib/async.js",
       "lib/dagre.min.js",
       "lib/dagre-d3.min.js"
