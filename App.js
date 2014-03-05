@@ -9,8 +9,6 @@ Ext.define('CustomApp', {
     
     ],
 
-    // changes for coloring
-    
     launch: function() {
         app = this;
         app.container_id = this.down("container").id;
