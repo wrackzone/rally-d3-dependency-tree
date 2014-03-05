@@ -335,7 +335,8 @@ Ext.define('CustomApp', {
         var srcIteration = src.snapshot.get("Iteration");
         var tgtIteration = tgt.snapshot.get("Iteration");
         if ( _.isUndefined(tgtIteration) || _.isNull(tgtIteration) || tgtIteration === "" )
-            return "yellow";
+            // return "yellow";
+            return "status-not-scheduled";
         // late ?
         if (!( _.isUndefined(srcIteration) || _.isNull(srcIteration)) &&
             !( _.isUndefined(tgtIteration) || _.isNull(tgtIteration))) {
