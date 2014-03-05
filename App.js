@@ -8,6 +8,8 @@ Ext.define('CustomApp', {
     items : [ { xtype : "container", itemId : "10" }
     
     ],
+
+    // changes for coloring
     
     launch: function() {
         app = this;
