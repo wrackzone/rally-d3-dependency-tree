@@ -43,6 +43,11 @@
   background-color:green;
 }
 
+.status-not-scheduled  {
+  color:black;
+  background-color: yellow;
+}
+
 /*
 .node {
   stroke: #fff;
