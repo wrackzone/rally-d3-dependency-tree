@@ -15,6 +15,9 @@ Ext.define('CustomApp', {
 
         console.log(this.down("container").id);
 
+        app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
+        app.myMask.show();
+
         async.waterfall([ this.getDependencySnapshots,
                           this.findMissingSnapshots,
                           this.getProjectInformation,
@@ -29,6 +32,7 @@ Ext.define('CustomApp', {
                           // this._createNodeStatus,
                           // this._forceDirectedGraph
                           ], function(err,results){
+                            app.myMask.hide();
            console.log("results",results); 
         });
 
@@ -178,36 +182,41 @@ Ext.define('CustomApp', {
         }
 
         var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
-        var style = null;
+        var date_span="";
+        var date_style = null;
         if (iterationEndDate) {
             if (node.status.length > 0)
-                style = "color:white;background-color:"+node.status[0].status;
+                date_style = node.status[0].status;
         }
+
+        date_span= "<span class='"+date_style+"'>" + (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +"</span>";
 
         var idstyle = ""
         if (node.snapshot.get("ScheduleState")==="Accepted") {
-
             //idstyle = "color:black;background-color:00FF66"
             idstyle="accepted-story";
         }
 
+        var state_class = node.snapshot.get("Blocked") === true ? "status-blocked" : "";
+        var state_span = "<span class='"+state_class+"'>" + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
+
         return "<table class='graph-node'>" + 
                 "<tr><td>" + "<span class="+idstyle+">" + 
                 node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
+                state_span + 
                 "</td></tr>" + 
                 "<tr><td>" + 
                 "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
                 "</td></tr>" + 
-                "<tr><td style='"+(style ? style : '')+"' >" + 
-                (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +
+                "<tr><td>" + 
+                date_span +
                 "</td></tr>" + 
-
 
                "</tr></table>"
 
     },
     
-    _createDagreGraph : function( nodes, links ) {
+    _createDagreGraph : function( nodes, links,callback ) {
 
         var g = new dagre.Digraph();
 
@@ -235,6 +244,7 @@ Ext.define('CustomApp', {
 
         var renderer = new dagreD3.Renderer();
         renderer.run(g, d3.select("svg g"));
+        callback(null,nodes,links);
 
     },
 
@@ -304,7 +314,7 @@ Ext.define('CustomApp', {
                 node.status = [];
                 if (i > 0) {
                     var status = app._createStatusForNodes( node, listNode );
-                    if ( status !== "Green" )
+                    if ( status !== "status-good" )
                         node.status.push({ status : status, target : listNode });
                 }
             });
@@ -341,10 +351,10 @@ Ext.define('CustomApp', {
         if (!( _.isUndefined(srcIteration) || _.isNull(srcIteration)) &&
             !( _.isUndefined(tgtIteration) || _.isNull(tgtIteration))) {
             if ( app._iterationEndDate(tgtIteration) > app._iterationEndDate(srcIteration) )
-                return "red";
+                return "status-bad";
         }
 
-        return "green";
+        return "status-good";
 
     },
 

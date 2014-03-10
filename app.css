@@ -48,6 +48,20 @@
   background-color: yellow;
 }
 
+.status-good  {
+  color:white;
+  background-color: green;
+}
+
+.status-bad {
+  color:white;
+  background-color: red;
+}
+
+.status-blocked {
+  color:red;
+}
+
 /*
 .node {
   stroke: #fff;
