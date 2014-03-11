@@ -120,29 +120,61 @@ Ext.define('CustomApp', {
             }
         });
     },
-    
-    findMissingSnapshots : function( snapshots, callback ) {
+
+    // iterates the snapshots, checks predecessors to see if they are in the list
+    // if not returned as an array to be read from rally
+
+    getMissingSnapshots : function(snapshots) {
         var all = _.pluck(snapshots, function(s) { return s.get("ObjectID");});
-        
+        var missing = [];
         _.each(snapshots,function(s){
             var pr = s.get("Predecessors");
             var su = s.get("Successors");
             if ( _.isArray(pr)) {
-                // console.log(_.difference( pr, all));
+                missing.push(_.difference( pr, all));
             }
             if ( _.isArray(su)) {
                 // console.log(_.difference( pr, all));
             }
         });
-        callback(null,snapshots);
+        return _.uniq(_.flatten(missing));
+    },
+    
+    findMissingSnapshots : function( snapshots, callback ) {
+
+        var missing = app.getMissingSnapshots(snapshots);
+        console.log("missing:",missing);
+
+        var config = {};
+        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
+        config.hydrate =  ['_TypeHierarchy','ScheduleState'];
+        config.find = {
+            'ObjectID' : { "$in" : missing },
+            '__At' : 'current'
+        };
+
+        async.map([config],app._snapshotQuery,function(err,results) {
+            console.log("missing snapshots:",results[0]);
+            _.each(results[0],function(s) {
+                snapshots.push(s);
+            });
+            // callback(null,snapshots);
+            if (app.getMissingSnapshots(snapshots).length>0)
+                app.findMissingSnapshots(snapshots,callback);
+            else
+                callback(null,snapshots);
+        });
+
     },
     
     getDependencySnapshots : function( callback ) {
-        var that = this;
-        var fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
-        var hydrate =  ['_TypeHierarchy','ScheduleState'];
 
-        var find = {
+        var that = this;
+        var config = {};
+
+        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
+        config.hydrate =  ['_TypeHierarchy','ScheduleState'];
+        config.find = {
             '_TypeHierarchy' : { "$in" : ["HierarchicalRequirement"]} ,
             '_ProjectHierarchy' : { "$in": app.getContext().getProject().ObjectID } , 
             '__At' : 'current',
@@ -151,23 +183,33 @@ Ext.define('CustomApp', {
                 {"Successors" : { "$exists" : true }},
             ]
         };
+
+        async.map([config],app._snapshotQuery,function(error,results) {
+            callback(null,results[0]);
+        });
         
+        
+    },
+
+    _snapshotQuery : function( config ,callback) {
+
         var storeConfig = {
-            find : find,
+            find    : config.find,
+            fetch   : config.fetch,
+            hydrate : config.hydrate,
             autoLoad : true,
-            pageSize:1000,
-            limit: 'Infinity',
-            fetch: fetch,
-            hydrate: hydrate,
+            pageSize : 10000,
+            limit    : 'Infinity',
             listeners : {
                 scope : this,
-                load: function(store, snapshots, success) {
+                load  : function(store,snapshots,success) {
                     console.log("snapshots:",snapshots.length);
                     callback(null,snapshots);
                 }
             }
         };
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', storeConfig);
+
     },
 
     _renderNodeLabel : function( node ) {
