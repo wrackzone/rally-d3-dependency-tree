@@ -179,8 +179,8 @@ Ext.define('CustomApp', {
             '_ProjectHierarchy' : { "$in": app.getContext().getProject().ObjectID } , 
             '__At' : 'current',
             '$or' : [   
-                {"Predecessors" : { "$exists" : true }},
-                {"Successors" : { "$exists" : true }},
+                {"Predecessors" : { "$exists" : true }}
+                // {"Successors" : { "$exists" : true }},
             ]
         };
 
