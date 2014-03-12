@@ -11,7 +11,7 @@ Ext.define('CustomApp', {
 
     launch: function() {
         app = this;
-        app.hideAccepted = app.getSetting('hideAccepted') == "True";
+        app.hideAccepted = app.getSetting('hideAccepted') == true;
         console.log("hideAccepted",app.hideAccepted);
         app.container_id = this.down("container").id;
         
@@ -41,7 +41,7 @@ Ext.define('CustomApp', {
 
     config: {
         defaultSettings: {
-            hideAccepted : 'True'
+            hideAccepted : true
         }
     },
 
@@ -49,7 +49,7 @@ Ext.define('CustomApp', {
         return [
             {
                 name: 'hideAccepted',
-                xtype: 'rallytextfield',
+                xtype: 'rallycheckboxfield',
                 label : "True to hide accepted stories"
             }
         ];
