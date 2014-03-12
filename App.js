@@ -272,9 +272,10 @@ Ext.define('CustomApp', {
         var state_span = "<span class='"+state_class+"'>" + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
 
         return "<table class='graph-node'>" + 
-                "<tr><td>" + "<span class="+idstyle+">" + 
-                node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
-                state_span + 
+                "<tr><td>" + "<span class='story-name'><span class="+idstyle+">" + 
+                //node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
+                node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name") +
+                state_span + "</span>" +
                 "</td></tr>" + 
                 "<tr><td>" + 
                 "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
