@@ -11,9 +11,10 @@ Ext.define('CustomApp', {
 
     launch: function() {
         app = this;
+        app.hideAccepted = app.getSetting('hideAccepted') == "True";
+        console.log("hideAccepted",app.hideAccepted);
         app.container_id = this.down("container").id;
-
-        console.log(this.down("container").id);
+        
 
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
         app.myMask.show();
@@ -21,7 +22,7 @@ Ext.define('CustomApp', {
         async.waterfall([ this.getDependencySnapshots,
                           this.findMissingSnapshots,
                           this.getProjectInformation,
-                          this.cleanUpSnapshots,
+                          // this.cleanUpSnapshots,
                           this.getIterationInformation,
                           this._createGraph,
                           this._createNodeList,
@@ -36,6 +37,22 @@ Ext.define('CustomApp', {
            console.log("results",results); 
         });
 
+    },
+
+    config: {
+        defaultSettings: {
+            hideAccepted : 'True'
+        }
+    },
+
+    getSettingsFields: function() {
+        return [
+            {
+                name: 'hideAccepted',
+                xtype: 'rallytextfield',
+                label : "True to hide accepted stories"
+            }
+        ];
     },
 
     getProjectInformation : function( snapshots, callback) {
@@ -80,9 +97,12 @@ Ext.define('CustomApp', {
 
         var readIteration = function( iid, callback) {
 
-            var config = { model : "Iteration", 
-                       fetch : ['Name','ObjectID','StartDate','EndDate'], 
-                       filters : [{property : "ObjectID", operator : "=", value : iid}]};
+            var config = { 
+                model : "Iteration", 
+                fetch : ['Name','ObjectID','StartDate','EndDate'], 
+                filters : [{property : "ObjectID", operator : "=", value : iid}],
+                context : { project : null}
+            };
             app.wsapiQuery(config,callback);
         };
 
@@ -105,7 +125,8 @@ Ext.define('CustomApp', {
     },
 
     wsapiQuery : function( config , callback ) {
-        Ext.create('Rally.data.WsapiDataStore', {
+
+        var storeConfig = {
             autoLoad : true,
             limit : "Infinity",
             model : config.model,
@@ -114,11 +135,15 @@ Ext.define('CustomApp', {
             listeners : {
                 scope : this,
                 load : function(store, data) {
-                    // console.log("wsapi:",data.length,data);
                     callback(null,data);
                 }
             }
-        });
+        };
+        if (!_.isUndefined(config.context)) {
+            storeConfig.context = config.context;
+        }
+
+        Ext.create('Rally.data.WsapiDataStore', storeConfig);
     },
 
     // iterates the snapshots, checks predecessors to see if they are in the list
@@ -183,6 +208,10 @@ Ext.define('CustomApp', {
                 // {"Successors" : { "$exists" : true }},
             ]
         };
+
+        // hide accepted stories
+        if (app.hideAccepted)
+            config.find['ScheduleState'] = { "$ne" : "Accepted" };
 
         async.map([config],app._snapshotQuery,function(error,results) {
             callback(null,results[0]);
