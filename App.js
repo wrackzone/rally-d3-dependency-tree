@@ -19,10 +19,11 @@ Ext.define('CustomApp', {
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
         app.myMask.show();
 
-        async.waterfall([ this.getDependencySnapshots,
+        async.waterfall([ //this.getClosedProjects,
+                          this.getDependencySnapshots,
                           this.findMissingSnapshots,
                           this.getProjectInformation,
-                          // this.cleanUpSnapshots,
+                          this.cleanUpSnapshots,
                           this.getIterationInformation,
                           this._createGraph,
                           this._createNodeList,
@@ -55,6 +56,22 @@ Ext.define('CustomApp', {
         ];
     },
 
+    getClosedProjects : function ( callback ) {
+
+        var config = { 
+            model : "Project", 
+            fetch : ['Name','ObjectID','State'], 
+            filters : [{property : "State", operator : "=", value : "Closed"}]
+        };
+
+        async.map([config],app.wsapiQuery,function(err,results){
+            app.closedProjects = _.map(results[0],function(p) {return p.get("ObjectID");});
+            console.log("closedProjects",app.closedProjects);
+            callback(null,null);
+        });
+
+    },
+
     getProjectInformation : function( snapshots, callback) {
 
         var projects = _.compact(_.uniq(_.map( snapshots, function(s) { return s.get("Project"); })));
@@ -75,6 +92,7 @@ Ext.define('CustomApp', {
 
     cleanUpSnapshots : function( snapshots, callback) {
 
+        console.log("unfiltered snapshots:",snapshots.length);
         var snapshots = _.filter(snapshots,function(snapshot) {
             // make sure the project for the snapshot exists
             var project = _.find(app.projects, function(p) { 
@@ -175,7 +193,9 @@ Ext.define('CustomApp', {
         config.hydrate =  ['_TypeHierarchy','ScheduleState'];
         config.find = {
             'ObjectID' : { "$in" : missing },
-            '__At' : 'current'
+            '__At' : 'current',
+            'Project' : { "$exists" : true},
+            'Project' : { "$ne" : null}
         };
 
         async.map([config],app._snapshotQuery,function(err,results) {
