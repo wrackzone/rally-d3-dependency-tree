@@ -320,7 +320,7 @@ Ext.define('CustomApp', {
             g.addEdge(null, link.source.id, link.target.id, {label:""});
         });
 
-        var width = 32000,
+        var width = 64000,
             height = 32000;
 
         // d3 rendering
