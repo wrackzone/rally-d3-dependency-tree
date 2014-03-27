@@ -11,7 +11,7 @@ Ext.define('CustomApp', {
 
     launch: function() {
         app = this;
-        app.hideAccepted = app.getSetting('hideAccepted') == true;
+        app.hideAccepted = app.getSetting('hideAccepted') === true;
         console.log("hideAccepted",app.hideAccepted);
         app.container_id = this.down("container").id;
         
@@ -79,7 +79,7 @@ Ext.define('CustomApp', {
         // var ss = _.filter(snapshots, function(s) { return s.get("Project")==projects[0];});
         // console.log("strange snapshots",ss);
         async.map( projects, app.readProject, function(err,results) {
-            app.projects = _.compact(_.map(results,function(r) { return r[0]}));
+            app.projects = _.compact(_.map(results,function(r) { return r[0];}));
             console.log("projects", app.projects);
             console.log("closed projects:", 
                 _.filter(app.projects,function(p){
@@ -93,7 +93,7 @@ Ext.define('CustomApp', {
     cleanUpSnapshots : function( snapshots, callback) {
 
         console.log("unfiltered snapshots:",snapshots.length);
-        var snapshots = _.filter(snapshots,function(snapshot) {
+        var snaps = _.filter(snapshots,function(snapshot) {
             // make sure the project for the snapshot exists
             var project = _.find(app.projects, function(p) { 
                 return snapshot.get("Project") === p.get("ObjectID");
@@ -101,9 +101,9 @@ Ext.define('CustomApp', {
 
             return !(_.isUndefined(project)||_.isNull(project));
         });
-        console.log("filtered snapshots:",snapshots.length);
+        console.log("filtered snapshots:",snaps.length);
 
-        callback(null,snapshots);
+        callback(null,snaps);
 
     },
 
@@ -125,9 +125,9 @@ Ext.define('CustomApp', {
         };
 
         async.map( iterations, readIteration, function(err,results) {
-            app.iterations = _.map(results,function(r) { return r[0]});
+            app.iterations = _.map(results,function(r) { return r[0];});
 
-            app.iterations = _.reject(app.iterations,function(i) {return (i=="")||_.isUndefined(i)});
+            app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
             console.log("iterations", app.iterations);
             callback(null,snapshots);
         });
@@ -282,7 +282,7 @@ Ext.define('CustomApp', {
 
         date_span= "<span class='"+date_style+"'>" + (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +"</span>";
 
-        var idstyle = ""
+        var idstyle = "";
         if (node.snapshot.get("ScheduleState")==="Accepted") {
             //idstyle = "color:black;background-color:00FF66"
             idstyle="accepted-story";
@@ -303,8 +303,7 @@ Ext.define('CustomApp', {
                 "<tr><td>" + 
                 date_span +
                 "</td></tr>" + 
-
-               "</tr></table>"
+               "</tr></table>";
 
     },
     
@@ -380,7 +379,7 @@ Ext.define('CustomApp', {
         // console.log("\tlinks:", _.map(nodeLinks,function(n){return n.target.id;}));
         _.each(nodeLinks, function(ln) {
             app._createLinkListForNode( ln.target, list, nodes, links);
-        })
+        });
 
     },
 
@@ -495,11 +494,11 @@ Ext.define('CustomApp', {
                 .attr('r', 5)
                 .attr('cx',20)
                 .attr('cy',function(d,i) { return (i+1)*20;})
-                .style("fill", function(d,i) { return color(i); })
+                .style("fill", function(d,i) { return color(i); });
         divs.append('svg:text')
                 .attr('x',20+10)
                 .attr('y',function(d,i) { return ((i+1)*20)+3;})
-                .text(function(d,i) { return !_.isUndefined(d) ? d.get("Name") : ""});
+                .text(function(d,i) { return !_.isUndefined(d) ? d.get("Name") : "";});
 
 
     },
@@ -655,7 +654,7 @@ Ext.define('CustomApp', {
             console.log("status check:",node.snapshot.get("_UnformattedID"),d,itStatus);
             var itMessage = iteration ? iteration.get("Name") + " " + m : "Unscheduled";
             item.append("div").html(itMessage).attr("style","color:"+textColor+";background-color:"+itStatus+";");
-        })
+        });
 
 
     },
@@ -673,7 +672,7 @@ Ext.define('CustomApp', {
         // block means sorta "render on the page" whereas none would mean "don't render at all"
         var infobox = d3.select(".infobox");
         // var coord = d3.svg.mouse(this)
-        var coord = d3.mouse(this)
+        var coord = d3.mouse(this);
         // now we just position the infobox roughly where our mouse is
         infobox.style("left", coord[0] + 15  + "px" );
         infobox.style("top", coord[1] + "px");
