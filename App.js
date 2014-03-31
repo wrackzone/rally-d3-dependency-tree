@@ -19,7 +19,7 @@ Ext.define('CustomApp', {
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
         app.myMask.show();
 
-        async.waterfall([ //this.getClosedProjects,
+        async.waterfall([ 
                           this.getDependencySnapshots,
                           this.findMissingSnapshots,
                           this.getProjectInformation,
@@ -29,15 +29,12 @@ Ext.define('CustomApp', {
                           this._createNodeList,
                           this._createNodeStatus,
                           this._createDagreGraph
-                          // this._createGraph,
-                          // this._createNodeList,
-                          // this._createNodeStatus,
-                          // this._forceDirectedGraph
-                          ], function(err,results){
-                            app.myMask.hide();
-           console.log("results",results); 
-        });
-
+                          ], 
+            function(err,results){
+                app.myMask.hide();
+                console.log("results",results); 
+            }
+        );
     },
 
     config: {
@@ -54,22 +51,6 @@ Ext.define('CustomApp', {
                 label : "True to hide accepted stories"
             }
         ];
-    },
-
-    getClosedProjects : function ( callback ) {
-
-        var config = { 
-            model : "Project", 
-            fetch : ['Name','ObjectID','State'], 
-            filters : [{property : "State", operator : "=", value : "Closed"}]
-        };
-
-        async.map([config],app.wsapiQuery,function(err,results){
-            app.closedProjects = _.map(results[0],function(p) {return p.get("ObjectID");});
-            console.log("closedProjects",app.closedProjects);
-            callback(null,null);
-        });
-
     },
 
     getProjectInformation : function( snapshots, callback) {
@@ -447,250 +428,7 @@ Ext.define('CustomApp', {
 
         return "status-good";
 
-    },
+    }
 
-    _nodeStatusStyle : function( node ) {
-
-        var red = _.find(node.status,function(s) { return s.status == "red";});
-        if (red)
-            return 'red';
-        var yellow = _.find(node.status,function(s) { return s.status == "yellow";});
-        if (yellow)
-            return 'yellow';
-
-        return 'green';
-
-    },
-
-    _linkStatusStyle : function ( link ) {
-
-        var status = app._createStatusForNodes( link.source, link.target );
-
-        return status;
-    },
-
-    getProjectColor : function( pid ) {
-        var i = _.findIndex( app.projects, function(p) { return !_.isUndefined(p) ? pid === p.get("ObjectID") : false;} );
-        return app.color(i);
-    },
-
-    addColorLegend : function(color,w,h) {
-
-        var div = d3.select("body").select("svg")
-            .append("svg:g")
-            .attr("class","color-legend")
-            .attr("transform","translate(" + ((w/5)*4) +",20)");
-
-        // console.log("select",d3.select("body").select("svg").select(".color-legend"));
-
-        var enter  = d3.select("body").select("svg").select(".color-legend")
-            .selectAll('g')
-            .data(app.projects, function(d,i) { return !_.isUndefined(d) ? d.get("ObjectID") : ""; })
-            .enter();
-
-        var divs = enter.append("g");
-
-        divs.append('svg:circle')
-                .attr('r', 5)
-                .attr('cx',20)
-                .attr('cy',function(d,i) { return (i+1)*20;})
-                .style("fill", function(d,i) { return color(i); });
-        divs.append('svg:text')
-                .attr('x',20+10)
-                .attr('y',function(d,i) { return ((i+1)*20)+3;})
-                .text(function(d,i) { return !_.isUndefined(d) ? d.get("Name") : "";});
-
-
-    },
-    
-    _forceDirectedGraph : function(nodes,links,callback) {
-        
-        var width = 1200,
-            height = 800;
-        
-        app.color = d3.scale.category20b();
-
-        var svg = d3.select("body").append("svg")
-            .attr("class","svg")
-            .attr("width", width)
-            .attr("height", height)
-            .on('mousemove', app.myMouseMoveFunction);
-            
-        var div = d3.select("body")
-            .append("div")
-            .html("Some text")
-            .classed("infobox",true);
-
-        app.addColorLegend(app.color,width,height);
-
-        // define arrow markers for graph links
-        svg.append('svg:defs').append('svg:marker')
-            .attr('id', 'end-arrow')
-            .attr('viewBox', '0 -5 10 10')
-            .attr('refX', 6)
-            .attr('markerWidth', 5)
-            .attr('markerHeight', 5)
-            .attr('orient', 'auto')
-          .append('svg:path')
-            .attr('d', 'M0,-5L10,0L0,5')
-            .attr('fill', '#000');
-
-        svg.append('svg:defs').append('svg:marker')
-            .attr('id', 'start-arrow')
-            .attr('viewBox', '0 -5 10 10')
-            .attr('refX', 4)
-            .attr('markerWidth', 3)
-            .attr('markerHeight', 3)
-            .attr('orient', 'auto')
-          .append('svg:path')
-            .attr('d', 'M10,-5L0,0L10,5')
-            .attr('fill', '#000');
-
-        var force = d3.layout.force()
-            .charge(-90)
-            .linkDistance(30)
-            .size([width, height])
-            .nodes(nodes)
-            .links(links)
-            .start();
-
-        // handles to link and node element groups
-        var path = svg.append('svg:g').selectAll('path')
-            .data(links)
-            .enter()
-            .append('svg:path')
-            .attr('class', 'link')
-            .attr('stroke-dasharray', function(d) {
-                var status = app._linkStatusStyle(d);
-                return status == "red" ? "2,2" : ""; 
-            })
-            .attr('marker-end', 'url(#end-arrow)');
-
-        var statusNodes = _.filter(nodes, function(n) { 
-            return app._nodeStatusStyle(n) !== "green";
-        });
-
-        var circle = svg.append('svg:g').selectAll('g')
-            .data(nodes, function(d) { return d.id; })
-            .enter()
-            .append('svg:g')
-            .append('svg:circle')
-                .attr('class', 'node')
-                .attr('r', 5)
-                // .style("fill", function(d) { return d.snapshot.get("ScheduleState") == "Accepted" ? "Green" : "Black"; })            
-                .style("fill", function(d) { return app.getProjectColor( d.snapshot.get("Project")); })
-                .call(force.drag)
-                .on("mouseover", app.myMouseOverFunction)
-                .on("mouseout", app.myMouseOutFunction)
-                .on("click", app.myMouseClick);
-
-        var circle1 = svg.append('svg:g').selectAll('g')
-            .data(statusNodes, function(d) { return d.id; })
-            .enter()
-            .append('svg:g')
-            .append('svg:circle')
-                .attr('class', 'node1')
-                .attr('r', 2)
-                .style("fill", function(d) { return app._nodeStatusStyle(d);})  
-                .call(force.drag);
-
-        force.on("tick", function() {
-            path.attr('d', function(d) {
-            var deltaX = d.target.x - d.source.x,
-                deltaY = d.target.y - d.source.y,
-                dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-                normX = deltaX / dist,
-                normY = deltaY / dist,
-                sourcePadding = 10, // d.left ? 17 : 12,
-                targetPadding = 10, // d.right ? 17 : 12,
-                sourceX = d.source.x + (sourcePadding * normX),
-                sourceY = d.source.y + (sourcePadding * normY),
-                targetX = d.target.x - (targetPadding * normX),
-                targetY = d.target.y - (targetPadding * normY);
-            return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
-            });
-
-            circle.attr('transform', function(d) {
-                return 'translate(' + d.x + ',' + d.y + ')';
-            });
-
-            circle1.attr('transform', function(d) {
-                return 'translate(' + (d.x-6) + ',' + (d.y-6) + ')';
-                //return 'translate(' + d.x + ',' + d.y + ')';
-            });
-
-        });
-
-        callback(null,nodes,links);
-    },
-
-    _createStoryDetails : function( node ) {
-
-        var s = node.snapshot;
-        var box = d3.select(".infobox");
-
-        box.html("");
-        box.append("div").attr("class","title").html("S"+s.get("_UnformattedID")+":"+s.get("Name"));
-
-        _.each( node.list.slice(1), function(d) {
-            var ds = d.snapshot;
-            var color = app.getProjectColor(ds.get("Project"));
-            var iteration = app._getIteration(ds.get("Iteration"));
-            var iterationName = iteration ? iteration.get("Name") : "";
-            var iterationEnd  = iteration ? iteration.get("EndDate") : "";
-            var m = iteration ? moment(iterationEnd).format("(MMM DD)") : "";
-
-            //box.append("div").attr("class","item").attr("style","color:white;background-color:"+color+";").html("S"+ds.get("_UnformattedID")+":"+ds.get("Name"));
-            
-            var item = box
-                .append("div")
-                    .attr("class","item")
-                    .attr("style","color:white;background-color:"+color+";")
-                    .html("S"+ds.get("_UnformattedID")+":"+ds.get("Name"));
-            item.append("div").attr("style","color:white;background-color:red;").html( ds.get("Blocked") ? "Blocked":"");
-
-            var itStatus = app._createStatusForNodes(node,d);
-            var textColor = itStatus === "yellow" ? "black" : "white";
-            console.log("status check:",node.snapshot.get("_UnformattedID"),d,itStatus);
-            var itMessage = iteration ? iteration.get("Name") + " " + m : "Unscheduled";
-            item.append("div").html(itMessage).attr("style","color:"+textColor+";background-color:"+itStatus+";");
-        });
-
-
-    },
-
-    myMouseClick : function(d) {
-        console.log("click:",d);
-        app._createStoryDetails(d);
-    },
-    
-    // this will be ran whenever we mouse over a circle
-	myMouseOverFunction : function(d) {
-        var circle = d3.select(this);
-        circle.attr("fill", "red" );
-        // show infobox div on mouseover.
-        // block means sorta "render on the page" whereas none would mean "don't render at all"
-        var infobox = d3.select(".infobox");
-        // var coord = d3.svg.mouse(this)
-        var coord = d3.mouse(this);
-        // now we just position the infobox roughly where our mouse is
-        infobox.style("left", coord[0] + 15  + "px" );
-        infobox.style("top", coord[1] + "px");
-
-        infobox.style("display", "block");	
-        infobox.html( d.snapshot.get("_UnformattedID")+":"+d.snapshot.get("Name"));
-        // add test to p tag in infobox
-        d3.select("p").text("This circle has a radius of " + circle.attr("r") + " pixels.");
-    },
-    
-    myMouseOutFunction : function() {
-        // var circle = d3.select(this);
-        // circle.attr("fill", "steelblue" );
-        // // display none removes element totally, whereas visibilty in last example just hid it
-        // d3.select(".infobox").style("display", "none");
-    },
- 
-	myMouseMoveFunction : function() {
-	}
-    
+   
 });
