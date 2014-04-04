@@ -29,6 +29,7 @@ Ext.define('CustomApp', {
                           this._createNodeList,
                           this._createNodeStatus,
                           this._createDagreGraph
+                          // this._createGraphViz
                           ], 
             function(err,results){
                 app.myMask.hide();
@@ -107,7 +108,6 @@ Ext.define('CustomApp', {
 
         async.map( iterations, readIteration, function(err,results) {
             app.iterations = _.map(results,function(r) { return r[0];});
-
             app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
             console.log("iterations", app.iterations);
             callback(null,snapshots);
@@ -202,7 +202,7 @@ Ext.define('CustomApp', {
         config.hydrate =  ['_TypeHierarchy','ScheduleState'];
         config.find = {
             '_TypeHierarchy' : { "$in" : ["HierarchicalRequirement"]} ,
-            '_ProjectHierarchy' : { "$in": app.getContext().getProject().ObjectID } , 
+            '_ProjectHierarchy' : { "$in": [app.getContext().getProject().ObjectID] } , 
             '__At' : 'current',
             '$or' : [   
                 {"Predecessors" : { "$exists" : true }}
@@ -316,6 +316,36 @@ Ext.define('CustomApp', {
 
         var renderer = new dagreD3.Renderer();
         renderer.run(g, d3.select("svg g"));
+        callback(null,nodes,links);
+
+    },
+
+    _createGraphViz : function( nodes, links, callback ) {
+
+        var gv = "digraph G {     orientation=portrait    node [shape=plaintext, fontsize=14]";
+
+        _.each(nodes,function(node) {
+            gv = gv + node.snapshot.get("FormattedID") + 
+                    " [label=<<" + 
+                    app._renderNodeLabel(node) + 
+                    ">>] ";
+        });
+
+        gv = gv  + "\n";
+
+        _.each(links,function(link) {
+            gv = gv + link.source.snapshot.get("FormattedID") + 
+                " -> " + 
+                gv + link.target.snapshot.get("FormattedID") + 
+                ";"
+        });
+
+        gv = gv  + " }";
+
+        app.gv = gv;
+
+        console.log("gv=",gv);
+
         callback(null,nodes,links);
 
     },
