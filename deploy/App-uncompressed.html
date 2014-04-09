@@ -3,7 +3,7 @@
 <head>
     <title>rallyd3dependencytree</title>
 
-    <script type="text/javascript" src="/apps/2.0rc1/sdk.js"></script>
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
     <script type="text/javascript" src="https://boiling-savannah-4452.herokuapp.com/lib/d3.min.js"></script>
     <script type="text/javascript" src="https://boiling-savannah-4452.herokuapp.com/lib/moment.min.js"></script>
     <script type="text/javascript" src="https://boiling-savannah-4452.herokuapp.com/lib/async.js"></script>
@@ -19,8 +19,11 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     maxHeight : 5,
     
-    items : [ { xtype : "container", itemId : "10" }
-    
+    items : [ 
+        { 
+            xtype : "container", 
+            itemId : "10" 
+        }  
     ],
 
     launch: function() {
@@ -54,7 +57,7 @@ Ext.define('CustomApp', {
 
     config: {
         defaultSettings: {
-            hideAccepted : true
+            hideAccepted : true,
         }
     },
 

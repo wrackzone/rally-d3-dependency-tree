@@ -5,8 +5,11 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     maxHeight : 5,
     
-    items : [ { xtype : "container", itemId : "10" }
-    
+    items : [ 
+        { 
+            xtype : "container", 
+            itemId : "10" 
+        }  
     ],
 
     launch: function() {
@@ -40,7 +43,8 @@ Ext.define('CustomApp', {
 
     config: {
         defaultSettings: {
-            hideAccepted : true
+            hideAccepted : true,
+            testSetting : ''
         }
     },
 
@@ -50,6 +54,11 @@ Ext.define('CustomApp', {
                 name: 'hideAccepted',
                 xtype: 'rallycheckboxfield',
                 label : "True to hide accepted stories"
+            },
+            {
+                name: 'testSetting',
+                xtype: 'rallytextfield',
+                label : "Test Settings Field"
             }
         ];
     },

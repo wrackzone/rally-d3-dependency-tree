@@ -2,7 +2,7 @@
    "name": "rallyd3dependencytree",
    "className": "CustomApp",
    "server": "https://rally1.rallydev.com",
-   "sdk": "2.0rc1",
+   "sdk": "2.0rc2",
    "javascript": [
       "App.js",
       "https://boiling-savannah-4452.herokuapp.com/lib/d3.min.js",
