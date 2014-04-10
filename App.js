@@ -6,17 +6,20 @@ Ext.define('CustomApp', {
     maxHeight : 5,
     
     items : [ 
-        { 
-            xtype : "container", 
-            itemId : "10" 
-        }  
+        // {
+        //     itemId : "exportLink"
+        // },
+        // { 
+        //     xtype : "container", 
+        //     itemId : "10" 
+        // }  
     ],
 
     launch: function() {
         app = this;
         app.hideAccepted = app.getSetting('hideAccepted') === true;
         console.log("hideAccepted",app.hideAccepted);
-        app.container_id = this.down("container").id;
+        // app.container_id = this.down("container").id;
         
 
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
@@ -31,8 +34,8 @@ Ext.define('CustomApp', {
                           this._createGraph,
                           this._createNodeList,
                           this._createNodeStatus,
-                          this._createDagreGraph
-                          // this._createGraphViz
+                          this._createDagreGraph,
+                          this._createGraphViz
                           ], 
             function(err,results){
                 app.myMask.hide();
@@ -43,8 +46,8 @@ Ext.define('CustomApp', {
 
     config: {
         defaultSettings: {
-            hideAccepted : true,
-            testSetting : ''
+            hideAccepted   : true,
+            showExportLink : true
         }
     },
 
@@ -56,9 +59,9 @@ Ext.define('CustomApp', {
                 label : "True to hide accepted stories"
             },
             {
-                name: 'testSetting',
-                xtype: 'rallytextfield',
-                label : "Test Settings Field"
+                name: 'showExportLink',
+                xtype: 'rallycheckboxfield',
+                label : "Show Link to Export (dot) file"
             }
         ];
     },
@@ -313,50 +316,113 @@ Ext.define('CustomApp', {
         var width = 64000,
             height = 32000;
 
-        // d3 rendering
-        var svg = d3.select("body").append("div").attr("class","div-container").append("svg")
-        // var svg = d3.select(app.container_id).append("svg")
-            .attr("class","svg")
-            .attr("width", width)
-            .attr("height", height)
-                .append("g")
-                .attr("transform","translate(20,20)");
-            // .on('mousemove', app.myMouseMoveFunction);
+        var container = Ext.create("Ext.container.Container",{
+            listeners:{
+                afterrender:function(i) {
+                    console.log("rendered",i,this);
 
-        var renderer = new dagreD3.Renderer();
-        renderer.run(g, d3.select("svg g"));
-        callback(null,nodes,links);
+                    console.log("d3 container",d3.select("#"+container.id));
 
+                    var svg = d3.select("body").append("div").attr("class","div-container").append("svg")
+                    // var svg = d3.select(app.container_id).append("svg")
+                        .attr("class","svg")
+                        // .attr("width", width)
+                        // .attr("height", height)
+                            .append("g")
+                            .attr("transform","translate(10,10)");
+
+                    console.log("d3 svg",d3.select("svg g"));
+
+                    var renderer = new dagreD3.Renderer();
+                    renderer.run(g, d3.select("svg g"));
+                    callback(null,nodes,links);
+                }
+            }
+        });
+        app.add(container);
+    },
+
+    _formatGraphVizNode : function (node) {
+
+        // example : US15036 [label=<<TABLE><TR><TD>US15036:Create C2P test cases for th<br/>e reviewed + approved claim scenari<br/>os[A]</TD></TR><TR><TD>Project:: <FONT color='blue'>CNG End-to-End Test</FONT> </TD></TR><TR><TD><FONT color='green'>(9/16/2011)</FONT></TD></TR></TABLE>>]
+        var project = _.find(app.projects, function(p) { 
+            return node.snapshot.get("Project") === p.get("ObjectID");
+        });
+
+        if (_.isUndefined(project)||_.isNull(project)) {
+            console.log("problem with project for:",node);
+        }
+
+        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+
+        var g = node.snapshot.get("FormattedID") + " ";
+        g = g + " [label=<";
+        g = g + "<TABLE>";
+        // row 1
+        g = g + "<TR>";
+        g = g + "<TD>";
+        g = g + node.snapshot.get("FormattedID") + ":" + node.snapshot.get("Name") + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
+        g = g + "</TD>";
+        g = g + "</TR>";
+        // row 2
+        g = g + "<TR>";
+        g = g + "<TD>";
+        g = g + "Project:" + project.get("Name");
+        g = g + "</TD>";
+        g = g + "</TR>";
+        // row 3
+        g = g + "<TR>";
+        g = g + "<TD>";
+        g = g + (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "");
+        g = g + "</TD>";
+        g = g + "</TR>";
+
+        g = g + "</TABLE>";
+        g = g + " >]\n";
+
+        return g;
     },
 
     _createGraphViz : function( nodes, links, callback ) {
 
-        var gv = "digraph G {     orientation=portrait    node [shape=plaintext, fontsize=14]";
+        var gv = "digraph G {\n     orientation=portrait\n    node [shape=plaintext, fontsize=14]\n";
 
         _.each(nodes,function(node) {
-            gv = gv + node.snapshot.get("FormattedID") + 
-                    " [label=<<" + 
-                    app._renderNodeLabel(node) + 
-                    ">>] ";
+            gv = gv + app._formatGraphVizNode(node);
         });
 
-        gv = gv  + "\n";
+        var gvLinks = "";
 
         _.each(links,function(link) {
-            gv = gv + link.source.snapshot.get("FormattedID") + 
+            gvLinks = gvLinks + link.source.snapshot.get("FormattedID") + 
                 " -> " + 
-                gv + link.target.snapshot.get("FormattedID") + 
-                ";"
+                link.target.snapshot.get("FormattedID") + 
+                ";\n";
         });
 
-        gv = gv  + " }";
+        gv = gv + gvLinks + " }";
+
+        console.log("========================");
+        console.log(gv);
+        console.log("========================");
 
         app.gv = gv;
 
-        console.log("gv=",gv);
+        if (app.getSetting('showExportLink') === true) {
+            // var link = app.down("#exportLink");
+            // var link = Ext.create("Ext.container.Container",{
+            // });
+            // link.update(app._createLink(app.gv));
+            // app.add(link);
+        }
+        
 
         callback(null,nodes,links);
 
+    },
+
+    _createLink : function(gvString) {
+        return "<a href='data:text/dot;charset=utf8," + encodeURIComponent(gvString) + "' download='export.dot'>Click to download dot file</a>";
     },
 
 

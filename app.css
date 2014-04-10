@@ -22,6 +22,10 @@
 
 }
 
+.svg {
+  margin-top : 50px;
+}
+
 .node rect {
     stroke: #333;
     stroke-width: 1.5px;
