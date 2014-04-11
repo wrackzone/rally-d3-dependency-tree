@@ -1,29 +1,22 @@
 .app {
      /* Add app styles here */
-
 }
 
 .div-container {
-    width: 1200;
-    height: 800;
-    overflow: scroll;
+  overflow: auto;
 }
 
-
-/*.svg {
-    overflow: auto;
-}
-*/
 .graph-node {
   padding : 50px;
   margin: 5px;
   width: 100;
   height: 100;
-
 }
 
 .svg {
-  margin-top : 50px;
+  overflow : auto;
+  height: 32000,
+  width: 32000;
 }
 
 .node rect {
@@ -70,66 +63,3 @@
   float: left;
   width : 175px;
 }
-
-/*
-.node {
-  stroke: #fff;
-  stroke-width: 1.5px;
-}
-
-.link {
-  stroke: #999;
-  stroke-opacity: .6;
-}
-
-path.link {
-  fill: none;
-  stroke: #000;
-  stroke-width: 1px;
-  cursor: default;
-}
-
-.infobox {
-        margin-top : 20px;
-        position: absolute;
-        width: 200px;
-        padding: 10px;
-        background: rgba(242, 242, 242, 0.9);
-        -moz-border-radius: 15px;
-        border-radius: 15px;
-}
-
-.title {
-  font-weight:bold;
-  text-align : center;
-
-}
-
-.item {
-  text-align : left;
-  padding:5px;
-  -moz-border-radius: 15px;
-  margin-top:5px;
-}
-
-.type1 {
-    width: 10px;
-    height: 10px;
-    background: yellow;
-    border: 3px solid red
-}
-
-.circleBase {
-    -webkit-border-radius: 999px;
-    -moz-border-radius: 999px;
-    border-radius: 999px;
-    behavior: url(PIE.htc);
-}
-
-
-.svg {
-  position: relative;
-}
-.color-legend {
-  float:right;
-}*/

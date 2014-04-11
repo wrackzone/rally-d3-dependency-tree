@@ -3,25 +3,14 @@ var app = null;
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    maxHeight : 5,
     
     items : [ 
-        // {
-        //     itemId : "exportLink"
-        // },
-        // { 
-        //     xtype : "container", 
-        //     itemId : "10" 
-        // }  
     ],
 
     launch: function() {
         app = this;
         app.hideAccepted = app.getSetting('hideAccepted') === true;
         console.log("hideAccepted",app.hideAccepted);
-        // app.container_id = this.down("container").id;
-        
-
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
         app.myMask.show();
 
@@ -34,8 +23,8 @@ Ext.define('CustomApp', {
                           this._createGraph,
                           this._createNodeList,
                           this._createNodeStatus,
-                          this._createDagreGraph,
-                          this._createGraphViz
+                          this._createDagreGraph
+                          // this._createGraphViz
                           ], 
             function(err,results){
                 app.myMask.hide();
@@ -69,9 +58,6 @@ Ext.define('CustomApp', {
     getProjectInformation : function( snapshots, callback) {
 
         var projects = _.compact(_.uniq(_.map( snapshots, function(s) { return s.get("Project"); })));
-        // console.log("project oids:",projects);
-        // var ss = _.filter(snapshots, function(s) { return s.get("Project")==projects[0];});
-        // console.log("strange snapshots",ss);
         async.map( projects, app.readProject, function(err,results) {
             app.projects = _.compact(_.map(results,function(r) { return r[0];}));
             console.log("projects", app.projects);
@@ -302,6 +288,7 @@ Ext.define('CustomApp', {
     
     _createDagreGraph : function( nodes, links,callback ) {
 
+        app.myMask.hide();
         var g = new dagre.Digraph();
 
         _.each(nodes, function(node){
@@ -313,33 +300,27 @@ Ext.define('CustomApp', {
             g.addEdge(null, link.source.id, link.target.id, {label:""});
         });
 
-        var width = 64000,
-            height = 32000;
-
-        var container = Ext.create("Ext.container.Container",{
-            listeners:{
-                afterrender:function(i) {
-                    console.log("rendered",i,this);
-
-                    console.log("d3 container",d3.select("#"+container.id));
-
-                    var svg = d3.select("body").append("div").attr("class","div-container").append("svg")
-                    // var svg = d3.select(app.container_id).append("svg")
-                        .attr("class","svg")
-                        // .attr("width", width)
-                        // .attr("height", height)
-                            .append("g")
-                            .attr("transform","translate(10,10)");
-
-                    console.log("d3 svg",d3.select("svg g"));
+        var x = Ext.widget('container',{
+            autoShow: true ,shadow: false,title: "",resizable: false,margin: 10
+            ,html: '<div id="demo-container" class="div-container"></div>'
+            ,listeners: {
+                resize: function(panel) {
+                },
+                afterrender : function(panel) {
+                    var svg = d3.select("#demo-container").append("div").append("svg")
+                    .attr("class","svg")
+                    // .append("g")
+                    .attr("transform","translate(10,10)");
 
                     var renderer = new dagreD3.Renderer();
-                    renderer.run(g, d3.select("svg g"));
+                    renderer.run(g, svg); 
                     callback(null,nodes,links);
                 }
             }
         });
-        app.add(container);
+        app.add(x);
+        callback(null,nodes,links);
+
     },
 
     _formatGraphVizNode : function (node) {
