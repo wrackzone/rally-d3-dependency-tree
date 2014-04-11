@@ -3,7 +3,6 @@ var app = null;
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    
     items : [ 
     ],
 
