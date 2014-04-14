@@ -17,12 +17,17 @@
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    items : [ 
+    items : [ { itemId : "exportLink", margin : "5 20 0 20"}
     ],
 
     launch: function() {
         app = this;
+        app.project = app.getContext().getProject();
+        console.log("project",app.project);
+
         app.hideAccepted = app.getSetting('hideAccepted') === true;
+        app.truncateNameTo = app.getSetting('truncateNameTo') > 0 ? parseInt(app.getSetting('truncateNameTo')) : 0;
+        
         console.log("hideAccepted",app.hideAccepted);
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
         app.myMask.show();
@@ -36,8 +41,8 @@ Ext.define('CustomApp', {
                           this._createGraph,
                           this._createNodeList,
                           this._createNodeStatus,
-                          this._createDagreGraph
-                          // this._createGraphViz
+                          this._createDagreGraph,
+                          this._createGraphViz
                           ], 
             function(err,results){
                 app.myMask.hide();
@@ -49,7 +54,8 @@ Ext.define('CustomApp', {
     config: {
         defaultSettings: {
             hideAccepted   : true,
-            showExportLink : true
+            showExportLink : true,
+            truncateNameTo : "0"
         }
     },
 
@@ -59,6 +65,11 @@ Ext.define('CustomApp', {
                 name: 'hideAccepted',
                 xtype: 'rallycheckboxfield',
                 label : "True to hide accepted stories"
+            },
+            {
+                name: 'truncateNameTo',
+                xtype: 'rallytextfield',
+                label : "Truncate the name to specified number of characters"
             },
             {
                 name: 'showExportLink',
@@ -253,8 +264,25 @@ Ext.define('CustomApp', {
 
     },
 
+    _linkFromSnapshot : function(snapshot) {
+        var tpl = Ext.create('Ext.Template', "https://rally1.rallydev.com/#/detail/userstory/{objectid}", { compiled : true } );
+        return tpl.apply({objectid:snapshot.get("ObjectID")});
+    },
+
+    _anchor : function(ref, content) {
+
+        var tpl = Ext.create('Ext.Template', 
+            "<a href='{ref}' target='_blank'>{content}</a>", { compiled : true } );
+        return tpl.apply({ref:ref,content:content});
+
+    },
+
     _renderNodeLabel : function( node ) {
 
+        console.log("Node",node.snapshot);
+
+        var name = app.truncateNameTo > 0 ? node.snapshot.get("Name").substring(0,app.truncateNameTo) : node.snapshot.get("Name");
+        console.log("name:",name);
         // get the project name
         var project = _.find(app.projects, function(p) { 
             return node.snapshot.get("Project") === p.get("ObjectID");
@@ -283,14 +311,27 @@ Ext.define('CustomApp', {
         var state_class = node.snapshot.get("Blocked") === true ? "status-blocked" : "";
         var state_span = "<span class='"+state_class+"'>" + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
 
+        var project_class = project.get("ObjectID") !== app.project.ObjectID ?
+            "other-project" : "";
+        var project_span = "Project:<span class='"+project_class+"'>" + 
+            ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name")) +
+            "</span>"; 
+
+        var idNameSpan = "<span class='story-name'><span class="+idstyle+">" + 
+                    node.snapshot.get("FormattedID") + "</span>" + ":" + name +
+                state_span + "</span>";
+
         return "<table class='graph-node'>" + 
-                "<tr><td>" + "<span class='story-name'><span class="+idstyle+">" + 
+                "<tr><td>" + //"<span class='story-name'><span class="+idstyle+">" + 
                 //node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
-                node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name") +
-                state_span + "</span>" +
+                // node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name") +
+                app._anchor( app._linkFromSnapshot(node.snapshot), idNameSpan ) +
+                // node.snapshot.get("FormattedID") + "</span>" + ":" + name +
+                // state_span + "</span>" +
                 "</td></tr>" + 
                 "<tr><td>" + 
-                "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
+                // "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
+                project_span +
                 "</td></tr>" + 
                 "<tr><td>" + 
                 date_span +
@@ -338,6 +379,8 @@ Ext.define('CustomApp', {
 
     _formatGraphVizNode : function (node) {
 
+        var name = app.truncateNameTo > 0 ? node.snapshot.get("Name").substring(0,app.truncateNameTo) : node.snapshot.get("Name");
+
         // example : US15036 [label=<<TABLE><TR><TD>US15036:Create C2P test cases for th<br/>e reviewed + approved claim scenari<br/>os[A]</TD></TR><TR><TD>Project:: <FONT color='blue'>CNG End-to-End Test</FONT> </TD></TR><TR><TD><FONT color='green'>(9/16/2011)</FONT></TD></TR></TABLE>>]
         var project = _.find(app.projects, function(p) { 
             return node.snapshot.get("Project") === p.get("ObjectID");
@@ -355,7 +398,8 @@ Ext.define('CustomApp', {
         // row 1
         g = g + "<TR>";
         g = g + "<TD>";
-        g = g + node.snapshot.get("FormattedID") + ":" + node.snapshot.get("Name") + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
+        // g = g + node.snapshot.get("FormattedID") + ":" + node.snapshot.get("Name") + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
+        g = g + node.snapshot.get("FormattedID") + ":" + name + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
         g = g + "</TD>";
         g = g + "</TR>";
         // row 2
@@ -403,10 +447,8 @@ Ext.define('CustomApp', {
         app.gv = gv;
 
         if (app.getSetting('showExportLink') === true) {
-            // var link = app.down("#exportLink");
-            // var link = Ext.create("Ext.container.Container",{
-            // });
-            // link.update(app._createLink(app.gv));
+            var link = app.down("#exportLink");
+            link.update(app._createLink(app.gv));
             // app.add(link);
         }
         
@@ -558,7 +600,7 @@ Ext.define('CustomApp', {
 
   border-style:solid;
   border-width:1px;
-  margin:10px;
+  margin:5px;
   padding: 10px;
   border-style:dotted;
 }
@@ -572,8 +614,8 @@ Ext.define('CustomApp', {
 
 .svg {
   overflow : auto;
-  height: 32000px;
-  width: 32000px;
+  height: 16000px;
+  width: 48000px;
 }
 
 .node rect {
@@ -619,6 +661,11 @@ Ext.define('CustomApp', {
 .story-name {
   float: left;
   width : 175px;
+}
+
+.other-project {
+  color:black;
+  background-color: yellow;
 }
 
     </style>
