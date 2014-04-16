@@ -277,68 +277,114 @@ Ext.define('CustomApp', {
 
     },
 
-    _renderNodeLabel : function( node ) {
+    _renderNodeTemplate : function( node ) {
 
-        console.log("Node",node.snapshot);
+        var snapshot = node.snapshot;
+        var id_style = snapshot.get("ScheduleState")==="Accepted" ? "accepted-story" : "";
 
         var name = app.truncateNameTo > 0 ? node.snapshot.get("Name").substring(0,app.truncateNameTo) : node.snapshot.get("Name");
-        console.log("name:",name);
-        // get the project name
         var project = _.find(app.projects, function(p) { 
             return node.snapshot.get("Project") === p.get("ObjectID");
         });
 
-        if (_.isUndefined(project)||_.isNull(project)) {
-            console.log("problem with project for:",node);
-        }
-
-        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
-        var date_span="";
-        var date_style = null;
-        if (iterationEndDate) {
-            if (node.status.length > 0)
-                date_style = node.status[0].status;
-        }
-
-        date_span= "<span class='"+date_style+"'>" + (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +"</span>";
-
-        var idstyle = "";
-        if (node.snapshot.get("ScheduleState")==="Accepted") {
-            //idstyle = "color:black;background-color:00FF66"
-            idstyle="accepted-story";
-        }
-
+        var projectName = project ? project.get("Name") : "Not Found!";
         var state_class = node.snapshot.get("Blocked") === true ? "status-blocked" : "";
-        var state_span = "<span class='"+state_class+"'>" + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
-
         var project_class = project.get("ObjectID") !== app.project.ObjectID ?
             "other-project" : "";
-        var project_span = "Project:<span class='"+project_class+"'>" + 
-            ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name")) +
-            "</span>"; 
 
-        var idNameSpan = "<span class='story-name'><span class="+idstyle+">" + 
-                    node.snapshot.get("FormattedID") + "</span>" + ":" + name +
-                state_span + "</span>";
+        var date_class = "";
+        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        iterationEndDate = iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "";
+        if (iterationEndDate) {
+            if (node.status.length > 0)
+                date_class = node.status[0].status;
+        }
 
-        return "<table class='graph-node'>" + 
-                "<tr><td>" + //"<span class='story-name'><span class="+idstyle+">" + 
-                //node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
-                // node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name") +
-                app._anchor( app._linkFromSnapshot(node.snapshot), idNameSpan ) +
-                // node.snapshot.get("FormattedID") + "</span>" + ":" + name +
-                // state_span + "</span>" +
-                "</td></tr>" + 
-                "<tr><td>" + 
-                // "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
-                project_span +
-                "</td></tr>" + 
-                "<tr><td>" + 
-                date_span +
-                "</td></tr>" + 
-               "</tr></table>";
+        var tpl = Ext.create('Ext.Template', 
+        "<table class='graph-node'>" +
+            "<tr><td><a class='{id_style}' href='{id_ref}' target='_blank'>{id}</a> : {name}<span class='{state_class}'> [{state}] </span></td></tr>" +
+            "<tr><td>Project:<span class='{project_class}'>{project}</span></td></tr>" +
+            "<tr><td><span class='{date_class}'>{date}</span></td></tr>" +
+        "</tr></table>", { compiled : true } );
+
+        return tpl.apply( {
+            id_style : id_style,
+            id_ref : app._linkFromSnapshot(snapshot),
+            id : snapshot.get("FormattedID"),
+            name : name,
+            state : node.snapshot.get("ScheduleState").substring(0,1),
+            state_class : state_class,
+            project_class : project_class,
+            project : projectName,
+            date_class : date_class,
+            date : iterationEndDate
+        });
+
 
     },
+
+    // _renderNodeLabel : function( node ) {
+
+    //     console.log("Node",node.snapshot);
+
+    //     var name = app.truncateNameTo > 0 ? node.snapshot.get("Name").substring(0,app.truncateNameTo) : node.snapshot.get("Name");
+    //     console.log("name:",name);
+    //     // get the project name
+    //     var project = _.find(app.projects, function(p) { 
+    //         return node.snapshot.get("Project") === p.get("ObjectID");
+    //     });
+
+    //     if (_.isUndefined(project)||_.isNull(project)) {
+    //         console.log("problem with project for:",node);
+    //     }
+
+    //     var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+    //     var date_span="";
+    //     var date_style = null;
+    //     if (iterationEndDate) {
+    //         if (node.status.length > 0)
+    //             date_style = node.status[0].status;
+    //     }
+
+    //     date_span= "<span class='"+date_style+"'>" + (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +"</span>";
+
+    //     var idstyle = "";
+    //     if (node.snapshot.get("ScheduleState")==="Accepted") {
+    //         //idstyle = "color:black;background-color:00FF66"
+    //         idstyle="accepted-story";
+    //     }
+
+    //     var state_class = node.snapshot.get("Blocked") === true ? "status-blocked" : "";
+    //     var state_span = "<span class='"+state_class+"'>" + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
+
+    //     var project_class = project.get("ObjectID") !== app.project.ObjectID ?
+    //         "other-project" : "";
+    //     var project_span = "Project:<span class='"+project_class+"'>" + 
+    //         ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name")) +
+    //         "</span>"; 
+
+    //     var idNameSpan = "<span class='story-name'><span class="+idstyle+">" + 
+    //                 node.snapshot.get("FormattedID") + "</span>" + ":" + name +
+    //             state_span + "</span>";
+
+    //     return "<table class='graph-node'>" + 
+    //             "<tr><td>" + //"<span class='story-name'><span class="+idstyle+">" + 
+    //             //node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
+    //             // node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name") +
+    //             app._anchor( app._linkFromSnapshot(node.snapshot), idNameSpan ) +
+    //             // node.snapshot.get("FormattedID") + "</span>" + ":" + name +
+    //             // state_span + "</span>" +
+    //             "</td></tr>" + 
+    //             "<tr><td>" + 
+    //             // "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
+    //             project_span +
+    //             "</td></tr>" + 
+    //             "<tr><td>" + 
+    //             date_span +
+    //             "</td></tr>" + 
+    //            "</tr></table>";
+
+    // },
     
     _createDagreGraph : function( nodes, links,callback ) {
 
@@ -347,7 +393,8 @@ Ext.define('CustomApp', {
 
         _.each(nodes, function(node){
             //g.addNode(node.id, { label : node.snapshot.get("Name")});
-            g.addNode(node.id, { label : app._renderNodeLabel(node)});
+            // g.addNode(node.id, { label : app._renderNodeLabel(node)});
+            g.addNode(node.id, { label : app._renderNodeTemplate(node)});
         });
 
         _.each(links, function(link){
@@ -635,8 +682,8 @@ Ext.define('CustomApp', {
 }
 
 .accepted-story {
-  color:white;
-  background-color:green;
+  
+  background-color:#66CC66;
 }
 
 .status-not-scheduled  {
@@ -651,7 +698,7 @@ Ext.define('CustomApp', {
 
 .status-bad {
   color:white;
-  background-color: red;
+  background-color: #FF6666;
 }
 
 .status-blocked {
@@ -665,7 +712,7 @@ Ext.define('CustomApp', {
 
 .other-project {
   color:black;
-  background-color: yellow;
+  background-color: #FFFFCC;
 }
 
     </style>

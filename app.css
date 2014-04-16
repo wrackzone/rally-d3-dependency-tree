@@ -48,8 +48,8 @@
 }
 
 .accepted-story {
-  color:white;
-  background-color:green;
+  
+  background-color:#66CC66;
 }
 
 .status-not-scheduled  {
@@ -64,7 +64,7 @@
 
 .status-bad {
   color:white;
-  background-color: red;
+  background-color: #FF6666;
 }
 
 .status-blocked {
@@ -78,5 +78,5 @@
 
 .other-project {
   color:black;
-  background-color: yellow;
+  background-color: #FFFFCC;
 }
