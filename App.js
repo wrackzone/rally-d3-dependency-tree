@@ -3,7 +3,8 @@ var app = null;
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    items : [ { itemId : "exportLink", margin : "5 20 0 20"}
+    items : [ 
+        { itemId : "exportLink", margin : "5 20 0 20"}
     ],
 
     launch: function() {
@@ -101,10 +102,7 @@ Ext.define('CustomApp', {
 
         var iterations = _.uniq(_.map( snapshots, function(s) { return s.get("Iteration"); }));
 
-        console.log("iterations",iterations);
-
         var readIteration = function( iid, callback) {
-
             var config = { 
                 model : "Iteration", 
                 fetch : ['Name','ObjectID','StartDate','EndDate'], 
@@ -308,69 +306,6 @@ Ext.define('CustomApp', {
 
 
     },
-
-    // _renderNodeLabel : function( node ) {
-
-    //     console.log("Node",node.snapshot);
-
-    //     var name = app.truncateNameTo > 0 ? node.snapshot.get("Name").substring(0,app.truncateNameTo) : node.snapshot.get("Name");
-    //     console.log("name:",name);
-    //     // get the project name
-    //     var project = _.find(app.projects, function(p) { 
-    //         return node.snapshot.get("Project") === p.get("ObjectID");
-    //     });
-
-    //     if (_.isUndefined(project)||_.isNull(project)) {
-    //         console.log("problem with project for:",node);
-    //     }
-
-    //     var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
-    //     var date_span="";
-    //     var date_style = null;
-    //     if (iterationEndDate) {
-    //         if (node.status.length > 0)
-    //             date_style = node.status[0].status;
-    //     }
-
-    //     date_span= "<span class='"+date_style+"'>" + (iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "") +"</span>";
-
-    //     var idstyle = "";
-    //     if (node.snapshot.get("ScheduleState")==="Accepted") {
-    //         //idstyle = "color:black;background-color:00FF66"
-    //         idstyle="accepted-story";
-    //     }
-
-    //     var state_class = node.snapshot.get("Blocked") === true ? "status-blocked" : "";
-    //     var state_span = "<span class='"+state_class+"'>" + " [" + node.snapshot.get("ScheduleState").substring(0,1) + "] ";
-
-    //     var project_class = project.get("ObjectID") !== app.project.ObjectID ?
-    //         "other-project" : "";
-    //     var project_span = "Project:<span class='"+project_class+"'>" + 
-    //         ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name")) +
-    //         "</span>"; 
-
-    //     var idNameSpan = "<span class='story-name'><span class="+idstyle+">" + 
-    //                 node.snapshot.get("FormattedID") + "</span>" + ":" + name +
-    //             state_span + "</span>";
-
-    //     return "<table class='graph-node'>" + 
-    //             "<tr><td>" + //"<span class='story-name'><span class="+idstyle+">" + 
-    //             //node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name").substring(0,35) +
-    //             // node.snapshot.get("FormattedID") + "</span>" + ":" + node.snapshot.get("Name") +
-    //             app._anchor( app._linkFromSnapshot(node.snapshot), idNameSpan ) +
-    //             // node.snapshot.get("FormattedID") + "</span>" + ":" + name +
-    //             // state_span + "</span>" +
-    //             "</td></tr>" + 
-    //             "<tr><td>" + 
-    //             // "Project:"+ ( _.isUndefined(project) || _.isNull(project) ? "Closed" : project.get("Name") ) +
-    //             project_span +
-    //             "</td></tr>" + 
-    //             "<tr><td>" + 
-    //             date_span +
-    //             "</td></tr>" + 
-    //            "</tr></table>";
-
-    // },
     
     _createDagreGraph : function( nodes, links,callback ) {
 
@@ -378,8 +313,6 @@ Ext.define('CustomApp', {
         var g = new dagre.Digraph();
 
         _.each(nodes, function(node){
-            //g.addNode(node.id, { label : node.snapshot.get("Name")});
-            // g.addNode(node.id, { label : app._renderNodeLabel(node)});
             g.addNode(node.id, { label : app._renderNodeTemplate(node)});
         });
 
@@ -396,7 +329,6 @@ Ext.define('CustomApp', {
                 afterrender : function(panel) {
                     var svg = d3.select("#demo-container").append("div").append("svg")
                     .attr("class","svg")
-                    // .append("g")
                     .attr("transform","translate(10,10)");
 
                     var renderer = new dagreD3.Renderer();
@@ -413,6 +345,9 @@ Ext.define('CustomApp', {
     _formatGraphVizNode : function (node) {
 
         var name = app.truncateNameTo > 0 ? node.snapshot.get("Name").substring(0,app.truncateNameTo) : node.snapshot.get("Name");
+
+        // replace & with + chars from name as they cause a problem when using the 'dot' command.
+        name = name.replace(/\&/g,"+");
 
         // example : US15036 [label=<<TABLE><TR><TD>US15036:Create C2P test cases for th<br/>e reviewed + approved claim scenari<br/>os[A]</TD></TR><TR><TD>Project:: <FONT color='blue'>CNG End-to-End Test</FONT> </TD></TR><TR><TD><FONT color='green'>(9/16/2011)</FONT></TD></TR></TABLE>>]
         var project = _.find(app.projects, function(p) { 
@@ -473,10 +408,6 @@ Ext.define('CustomApp', {
 
         gv = gv + gvLinks + " }";
 
-        console.log("========================");
-        console.log(gv);
-        console.log("========================");
-
         app.gv = gv;
 
         if (app.getSetting('showExportLink') === true) {
@@ -484,7 +415,6 @@ Ext.define('CustomApp', {
             link.update(app._createLink(app.gv));
             // app.add(link);
         }
-        
 
         callback(null,nodes,links);
 
@@ -603,6 +533,5 @@ Ext.define('CustomApp', {
         return "status-good";
 
     }
-
    
 });
