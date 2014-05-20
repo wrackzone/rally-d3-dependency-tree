@@ -4,18 +4,78 @@ Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     items : [ 
-        { itemId : "exportLink", margin : "5 20 0 20"}
+        { 
+            layout:'column',
+            items : [
+                {
+                    margin : "5 20 5 20",
+                    width : 400,
+                    id:'cboFilter',
+                    xtype:'combobox',
+                    fieldLabel:'Successor',
+                    displayField:'name',
+                    valueField:'id',
+                    queryMode:'local',
+                    listeners : {
+                        scope : this,
+                        select : function(combo,records,eOpts) {
+                            app.filterSuccessor(combo,records,eOpts);
+                        }
+                    }
+                },
+                { itemId : "exportLink", margin : "5 20 5 20"}
+            ]
+        }
     ],
+
+    filterSuccessor : function(combo,records,eOpts) {      
+        var selected = records[0];
+        var root = _.find(app.nodes,function(node) { return node.id === selected.get("id");});
+
+        var newNodes = [];
+        var newLinks = [];
+
+        var walkTheLine = function(root, newNodes, newLinks) {
+            if (_.find(newNodes,function(n){return n.id===root.id;})===undefined)
+                newNodes.push(root);
+            var links = _.filter(app.links,function(link) { return link.source.id === root.id;});
+            _.each(links,function(link){ 
+                newLinks.push(link);
+                walkTheLine(link.target,newNodes,newLinks);
+            });
+        }
+
+        walkTheLine( root, newNodes, newLinks);
+
+        // console.log("filtered:",root,newNodes,newLinks);
+
+        app._createDagreGraph(newNodes,newLinks,function(err,nodes,links) {
+            // console.log("selected:",nodes,links);
+        })
+    },
 
     launch: function() {
         app = this;
-        app.project = app.getContext().getProject();
-        console.log("project",app.project);
+        app.filterItems = [];
+        app.filterStore = Ext.create('Ext.data.Store',{
+            fields:['id','name'],
+            data: app.filterItems
+        });
+        app.down("#cboFilter").bindStore(app.filterStore);
 
+        
+        app.project = app.getContext().getProject();
+        // console.log("project",app.project);
+
+        app.showFilter = app.getSetting('showFilter') === true;
         app.hideAccepted = app.getSetting('hideAccepted') === true;
         app.truncateNameTo = app.getSetting('truncateNameTo') > 0 ? parseInt(app.getSetting('truncateNameTo')) : 0;
         
-        console.log("hideAccepted",app.hideAccepted);
+        if (!app.showFilter) {
+            app.down("#cboFilter").hide();
+        }
+
+        // console.log("hideAccepted",app.hideAccepted);
         app.myMask = new Ext.LoadMask(Ext.getBody(), {msg:"Please wait..."});
         app.myMask.show();
 
@@ -26,20 +86,25 @@ Ext.define('CustomApp', {
                           this.cleanUpSnapshots,
                           this.getIterationInformation,
                           this._createGraph,
+                          this._setFilterNodes,
                           this._createNodeList,
                           this._createNodeStatus,
                           this._createDagreGraph,
                           this._createGraphViz
                           ], 
-            function(err,results){
+            function(err,nodes,links){
                 app.myMask.hide();
-                console.log("results",results); 
+                // console.log("nodes",nodes); 
+                // console.log("links",links); 
+                app.nodes = nodes;
+                app.links = links;
             }
         );
     },
 
     config: {
         defaultSettings: {
+            showFilter     : false,
             hideAccepted   : true,
             showExportLink : true,
             truncateNameTo : "0"
@@ -48,6 +113,12 @@ Ext.define('CustomApp', {
 
     getSettingsFields: function() {
         return [
+            {
+                name: 'showFilter',
+                xtype: 'rallycheckboxfield',
+                label : "Show Successor Filter"
+            },
+
             {
                 name: 'hideAccepted',
                 xtype: 'rallycheckboxfield',
@@ -71,12 +142,6 @@ Ext.define('CustomApp', {
         var projects = _.compact(_.uniq(_.map( snapshots, function(s) { return s.get("Project"); })));
         async.map( projects, app.readProject, function(err,results) {
             app.projects = _.compact(_.map(results,function(r) { return r[0];}));
-            console.log("projects", app.projects);
-            console.log("closed projects:", 
-                _.filter(app.projects,function(p){
-                    return p.get("State")==="Closed";
-                })
-            );
             callback(null,snapshots);
         });
     },
@@ -92,7 +157,7 @@ Ext.define('CustomApp', {
 
             return !(_.isUndefined(project)||_.isNull(project));
         });
-        console.log("filtered snapshots:",snaps.length);
+        // console.log("filtered snapshots:",snaps.length);
 
         callback(null,snaps);
 
@@ -115,7 +180,7 @@ Ext.define('CustomApp', {
         async.map( iterations, readIteration, function(err,results) {
             app.iterations = _.map(results,function(r) { return r[0];});
             app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
-            console.log("iterations", app.iterations);
+            // console.log("iterations", app.iterations);
             callback(null,snapshots);
         });
     },
@@ -186,7 +251,7 @@ Ext.define('CustomApp', {
         };
 
         async.map([config],app._snapshotQuery,function(err,results) {
-            console.log("missing snapshots:",results[0]);
+            // console.log("missing snapshots:",results[0]);
             _.each(results[0],function(s) {
                 snapshots.push(s);
             });
@@ -239,7 +304,7 @@ Ext.define('CustomApp', {
             listeners : {
                 scope : this,
                 load  : function(store,snapshots,success) {
-                    console.log("snapshots:",snapshots.length);
+                    // console.log("snapshots:",snapshots.length);
                     callback(null,snapshots);
                 }
             }
@@ -320,7 +385,11 @@ Ext.define('CustomApp', {
             g.addEdge(null, link.source.id, link.target.id, {label:""});
         });
 
-        var x = Ext.widget('container',{
+        if (!_.isUndefined(app.x) && !_.isNull(app.x)) {
+            app.x.destroy();
+        }
+
+        app.x = Ext.widget('container',{
             autoShow: true ,shadow: false,title: "",resizable: false,margin: 10
             ,html: '<div id="demo-container" class="div-container"></div>'
             ,listeners: {
@@ -337,7 +406,7 @@ Ext.define('CustomApp', {
                 }
             }
         });
-        app.add(x);
+        app.add(app.x);
         callback(null,nodes,links);
 
     },
@@ -424,7 +493,6 @@ Ext.define('CustomApp', {
         return "<a href='data:text/dot;charset=utf8," + encodeURIComponent(gvString) + "' download='export.dot'>Click to download dot file</a>";
     },
 
-
     _createGraph : function( snapshots, callback ) {
         var that = this;
         var p = _.filter(snapshots,function(rec) { return _.isArray(rec.get("Predecessors"));});
@@ -455,6 +523,25 @@ Ext.define('CustomApp', {
 
     },
 
+    _setFilterNodes : function(nodes,links,callback) {
+
+        _.each(links,function(link) {
+            // is this link source the target of another link ? 
+            var targets = _.filter(links,function(targetLink) {
+                return link.source.id === targetLink.target.id;
+            });
+            // if not then we add it to the filter list.
+            if (targets.length===0) {
+                app.filterItems.push( { id: link.source.id, name: link.source.snapshot.get("Name") });
+            }
+        });
+
+        app.filterStore.reload();
+
+        callback(null,nodes,links);
+
+    },
+
     // recursive method to walk the list of links
     _createLinkListForNode : function( node, list, nodes, links ) {
 
@@ -469,17 +556,12 @@ Ext.define('CustomApp', {
     },
 
     _createNodeList : function( nodes, links, callback ) {
-
         _.each(nodes, function(node) {
-            // console.log("node:",node.id);
             var list = [];
             app._createLinkListForNode( node, list, nodes, links );
-            // console.log("List:",_.map(list,function(l){return l.id;}));
             node.list = list;
         });
-
         callback(null,nodes, links);
-
     },
 
     // the status for the node is based on its downstream dependencies in the list
