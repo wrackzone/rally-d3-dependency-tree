@@ -536,6 +536,7 @@ Ext.define('CustomApp', {
             }
         });
 
+        app.filterItems = _.sortBy(app.filterItems,"name");
         app.filterStore.reload();
 
         callback(null,nodes,links);
