@@ -532,7 +532,7 @@ Ext.define('CustomApp', {
             });
             // if not then we add it to the filter list.
             if (targets.length===0) {
-                app.filterItems.push( { id: link.source.id, name: link.source.snapshot.get("Name") });
+                app.filterItems.push( { id: link.source.id, name: link.source.snapshot.get("FormattedID") + ":"+link.source.snapshot.get("Name") });
             }
         });
 
