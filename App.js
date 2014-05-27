@@ -193,6 +193,13 @@ Ext.define('CustomApp', {
             app.iterations = _.map(results,function(r) { return r[0];});
             app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
             console.log("iterations", app.iterations);
+            // debugging
+            var epics = _.filter(snapshots,function(s) { return !_.isUndefined(s.get("LeafNodes")) && s.get("LeafNodes").length>0});
+            _.each(epics,function(epic){
+                console.log("max for epic:",epic.get("FormattedID"),app._getSnapshotIteration(epic));
+            })
+            // debugging        
+
             callback(null,snapshots);
         });
     },
@@ -315,10 +322,6 @@ Ext.define('CustomApp', {
             '__At' : 'current',
         };
 
-        // hide accepted stories
-        if (app.hideAccepted)
-            config.find['ScheduleState'] = { "$ne" : "Accepted" };
-
         async.map([config],app._snapshotQuery,function(error,results) {
             callback(null,results[0]);
         });
@@ -366,7 +369,6 @@ Ext.define('CustomApp', {
             listeners : {
                 scope : this,
                 load  : function(store,snapshots,success) {
-                    // console.log("snapshots:",snapshots.length);
                     callback(null,snapshots);
                 }
             }
@@ -404,7 +406,8 @@ Ext.define('CustomApp', {
             "other-project" : "";
 
         var date_class = "";
-        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        // var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        var iterationEndDate = app._iterationEndDate(app._getSnapshotIteration(node.snapshot));
         iterationEndDate = iterationEndDate ? moment(iterationEndDate).format("MM/DD/YYYY") : "";
         if (iterationEndDate) {
             if (node.status.length > 0)
@@ -492,7 +495,8 @@ Ext.define('CustomApp', {
             console.log("problem with project for:",node);
         }
 
-        var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        // var iterationEndDate = app._iterationEndDate(node.snapshot.get("Iteration"));
+        var iterationEndDate = app._iterationEndDate(app._getSnapshotIteration(node.snapshot));
 
         var g = node.snapshot.get("FormattedID") + " ";
         g = g + " [label=<";
@@ -660,14 +664,35 @@ Ext.define('CustomApp', {
 
     _iterationEndDate : function(iid) {
         var iteration = app._getIteration(iid);
-        return iteration ? iteration.raw.EndDate : null;
+        return iteration ? 
+                    Rally.util.DateTime.fromIsoString(iteration.raw.EndDate) 
+                    : null;
+    },
+
+    // used to get the iteration on the snapshot. if an epic snapshot it will be last iteration
+    // of the leafnodes.
+    _getSnapshotIteration : function(snapshot) {
+        var leafNodes = snapshot.get("LeafNodes");
+
+        // if child snapshot then just return the iteration
+        if (_.isUndefined(leafNodes)||_.isNull(leafNodes)||leafNodes.length===0) {
+            return snapshot.get("Iteration");
+        }
+        // otherwise return the last of the leaf nodes based on iteration end date. 
+        var max = _.max(leafNodes, function(leaf) {
+            var i = leaf.get("Iteration");
+            return app._iterationEndDate(i);
+        });
+        return max.get("Iteration");
     },
 
     _createStatusForNodes : function( src, tgt ) {
 
         // is scheduled ? 
-        var srcIteration = src.snapshot.get("Iteration");
-        var tgtIteration = tgt.snapshot.get("Iteration");
+        // var srcIteration = src.snapshot.get("Iteration");
+        var srcIteration = app._getSnapshotIteration(src.snapshot);
+        // var tgtIteration = tgt.snapshot.get("Iteration");
+        var tgtIteration = app._getSnapshotIteration(tgt.snapshot);
         if ( _.isUndefined(tgtIteration) || _.isNull(tgtIteration) || tgtIteration === "" )
             // return "yellow";
             return "status-not-scheduled";
