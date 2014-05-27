@@ -82,6 +82,7 @@ Ext.define('CustomApp', {
         async.waterfall([ 
                           this.getDependencySnapshots,
                           this.findMissingSnapshots,
+                          this.addChildStoryInformation,
                           this.getProjectInformation,
                           this.cleanUpSnapshots,
                           this.getIterationInformation,
@@ -165,7 +166,18 @@ Ext.define('CustomApp', {
 
     getIterationInformation : function( snapshots, callback) {
 
-        var iterations = _.uniq(_.map( snapshots, function(s) { return s.get("Iteration"); }));
+        // also check for epic iterations
+        var epicIterations = _.uniq( _.flatten(_.map(snapshots, function(s) {
+            return _.map(s.get("LeafNodes"),function(leaf) { 
+                return(leaf.get("Iteration"));
+            })
+        })));
+
+        var iterations = _.map( snapshots, function(s) { return s.get("Iteration"); });
+
+        iterations = _.union(iterations,epicIterations);
+
+        console.log("iterations",iterations);
 
         var readIteration = function( iid, callback) {
             var config = { 
@@ -180,7 +192,7 @@ Ext.define('CustomApp', {
         async.map( iterations, readIteration, function(err,results) {
             app.iterations = _.map(results,function(r) { return r[0];});
             app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
-            // console.log("iterations", app.iterations);
+            console.log("iterations", app.iterations);
             callback(null,snapshots);
         });
     },
@@ -241,7 +253,7 @@ Ext.define('CustomApp', {
         console.log("missing:",missing);
 
         var config = {};
-        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
+        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID','Children'];
         config.hydrate =  ['_TypeHierarchy','ScheduleState'];
         config.find = {
             'ObjectID' : { "$in" : missing },
@@ -263,13 +275,63 @@ Ext.define('CustomApp', {
         });
 
     },
+
+    // if a snapshot represents a parent story this will add key information, specifically the 
+    // iteration date of the last child.
+    addChildStoryInformation : function( snapshots, callback ) {
+
+        var epicSnapshots = _.filter(snapshots,function(s) {
+            return s.get("Children").length > 0
+        });
+
+        console.log("epics",epicSnapshots);
+
+        async.map( epicSnapshots, app.leafNodeSnapshots,function(err,results) {
+
+            console.log("epic results:",results);
+            _.each( results, function( leafNodes,i) {
+                epicSnapshots[i].set("LeafNodes",leafNodes);
+            });
+
+            callback(null,snapshots);
+
+        });
+
+        
+
+    },
+
+    leafNodeSnapshots : function( epicSnapshot, callback ) {
+
+        var config = {};
+
+        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID','Children'];
+        config.hydrate =  ['_TypeHierarchy','ScheduleState'];
+        config.find = {         
+            '_TypeHierarchy' : { "$in" : ["HierarchicalRequirement"]},
+            '_ItemHierarchy' : { "$in" : [epicSnapshot.get("ObjectID")]},
+            '_ProjectHierarchy' : { "$in": [app.getContext().getProject().ObjectID]}, 
+            'Children' : null,
+            '__At' : 'current',
+        };
+
+        // hide accepted stories
+        if (app.hideAccepted)
+            config.find['ScheduleState'] = { "$ne" : "Accepted" };
+
+        async.map([config],app._snapshotQuery,function(error,results) {
+            callback(null,results[0]);
+        });
+        
+    },
+
     
     getDependencySnapshots : function( callback ) {
 
         var that = this;
         var config = {};
 
-        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID'];
+        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID','Children'];
         config.hydrate =  ['_TypeHierarchy','ScheduleState'];
         config.find = {
             '_TypeHierarchy' : { "$in" : ["HierarchicalRequirement"]} ,
@@ -349,9 +411,11 @@ Ext.define('CustomApp', {
                 date_class = node.status[0].status;
         }
 
+        var childCount = node.snapshot.get('Children').length > 0 ? " (" + node.snapshot.get('Children').length + ")" : "";
+
         var tpl = Ext.create('Ext.Template', 
         "<table class='graph-node'>" +
-            "<tr><td><a class='{id_style}' href='{id_ref}' target='_blank'>{id}</a> : {name}<span class='{state_class}'> [{state}] </span></td></tr>" +
+            "<tr><td><a class='{id_style}' href='{id_ref}' target='_blank'>{id}</a> : {name}<span class='{state_class}'> [{state}] </span><span>{child_count}</span></td></tr>" +
             "<tr><td>Project:<span class='{project_class}'>{project}</span></td></tr>" +
             "<tr><td><span class='{date_class}'>{date}</span></td></tr>" +
         "</tr></table>", { compiled : true } );
@@ -366,7 +430,8 @@ Ext.define('CustomApp', {
             project_class : project_class,
             project : projectName,
             date_class : date_class,
-            date : iterationEndDate
+            date : iterationEndDate,
+            child_count : childCount
         });
 
 
