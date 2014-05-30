@@ -105,7 +105,7 @@ Ext.define('CustomApp', {
 
     config: {
         defaultSettings: {
-            showFilter     : false,
+            showFilter     : true,
             hideAccepted   : true,
             showExportLink : true,
             truncateNameTo : "0"
@@ -317,7 +317,7 @@ Ext.define('CustomApp', {
         config.find = {         
             '_TypeHierarchy' : { "$in" : ["HierarchicalRequirement"]},
             '_ItemHierarchy' : { "$in" : [epicSnapshot.get("ObjectID")]},
-            '_ProjectHierarchy' : { "$in": [app.getContext().getProject().ObjectID]}, 
+            // '_ProjectHierarchy' : { "$in": [app.getContext().getProject().ObjectID]}, 
             'Children' : null,
             '__At' : 'current',
         };
