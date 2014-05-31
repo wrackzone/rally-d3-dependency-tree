@@ -29,6 +29,7 @@ Ext.define('CustomApp', {
     ],
 
     filterSuccessor : function(combo,records,eOpts) {      
+        console.log("records",records);
         var selected = records[0];
         var root = _.find(app.nodes,function(node) { return node.id === selected.get("id");});
 
@@ -63,7 +64,7 @@ Ext.define('CustomApp', {
                 property: 'name',
                 direction: 'ASC'
             }],
-            fields:[{name:'id', type:'string'},{name:'name',type:'string'}],
+            fields:['id',{name:'name',type:'string'}],
             data: app.filterItems
         });
         app.down("#cboFilter").bindStore(app.filterStore);
