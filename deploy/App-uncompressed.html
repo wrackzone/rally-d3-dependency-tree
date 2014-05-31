@@ -72,7 +72,12 @@ Ext.define('CustomApp', {
         app = this;
         app.filterItems = [];
         app.filterStore = Ext.create('Ext.data.Store',{
-            fields:['id','name'],
+            // remoteSort : true,
+            sorters: [{
+                property: 'name',
+                direction: 'ASC'
+            }],
+            fields:[{name:'id', type:'string'},{name:'name',type:'string'}],
             data: app.filterItems
         });
         app.down("#cboFilter").bindStore(app.filterStore);
@@ -120,7 +125,7 @@ Ext.define('CustomApp', {
     config: {
         defaultSettings: {
             showFilter     : true,
-            hideAccepted   : true,
+            hideAccepted   : false,
             showExportLink : true,
             truncateNameTo : "0"
         }
@@ -209,9 +214,9 @@ Ext.define('CustomApp', {
             console.log("iterations", app.iterations);
             // debugging
             var epics = _.filter(snapshots,function(s) { return !_.isUndefined(s.get("LeafNodes")) && s.get("LeafNodes").length>0});
-            _.each(epics,function(epic){
-                console.log("max for epic:",epic.get("FormattedID"),app._getSnapshotIteration(epic));
-            })
+            // _.each(epics,function(epic){
+            //     console.log("max for epic:",epic.get("FormattedID"),app._getSnapshotIteration(epic));
+            // })
             // debugging        
 
             callback(null,snapshots);
@@ -563,9 +568,24 @@ Ext.define('CustomApp', {
         app.gv = gv;
 
         if (app.getSetting('showExportLink') === true) {
+
+            var autoEl = Ext.create('Ext.Component',{
+                itemId : 'autoel-export',
+                autoEl : {
+                    tag : 'a',
+                    href : 'data:text/dot;charset=utf8,' + encodeURIComponent(app.gv),
+                    download : 'export.dot',
+                    html : 'Click to download dot file'
+                }
+            });
+
+            console.log("adding export link");
             var link = app.down("#exportLink");
-            link.update(app._createLink(app.gv));
-            // app.add(link);
+            var f;
+            while(f = link.items.first()){
+                link.remove(f, true);
+            }
+            link.add(autoEl);
         }
 
         callback(null,nodes,links);
@@ -573,7 +593,11 @@ Ext.define('CustomApp', {
     },
 
     _createLink : function(gvString) {
-        return "<a href='data:text/dot;charset=utf8," + encodeURIComponent(gvString) + "' download='export.dot'>Click to download dot file</a>";
+        var l = "<a href='data:text/dot;charset=utf8," + encodeURIComponent(gvString) + "' download='export.dot'>Click to download dot file</a>";
+        // var l = "<a href='data:text/dot;charset=utf8," + gvString + "' download='export.dot'>Click to download dot file</a>";
+        console.log(l);
+        console.log(l.length);
+        return l;
     },
 
     _createGraph : function( snapshots, callback ) {
@@ -619,7 +643,10 @@ Ext.define('CustomApp', {
             }
         });
 
-        app.filterItems = _.sortBy(app.filterItems,"name");
+        app.filterItems = _.uniq(app.filterItems,"name");
+        // app.filterItems = _.sortBy(app.filterItems,"name");
+        // console.log("filter store",app.filterItems);
+        app.filterStore.sort();
         app.filterStore.reload();
 
         callback(null,nodes,links);
