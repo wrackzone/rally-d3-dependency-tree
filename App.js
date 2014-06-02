@@ -28,33 +28,6 @@ Ext.define('CustomApp', {
         }
     ],
 
-    filterSuccessor : function(combo,records,eOpts) {      
-        console.log("records",records);
-        var selected = records[0];
-        var root = _.find(app.nodes,function(node) { return node.id === selected.get("id");});
-
-        var newNodes = [];
-        var newLinks = [];
-
-        var walkTheLine = function(root, newNodes, newLinks) {
-            if (_.find(newNodes,function(n){return n.id===root.id;})===undefined)
-                newNodes.push(root);
-            var links = _.filter(app.links,function(link) { return link.source.id === root.id;});
-            _.each(links,function(link){ 
-                newLinks.push(link);
-                walkTheLine(link.target,newNodes,newLinks);
-            });
-        }
-
-        walkTheLine( root, newNodes, newLinks);
-
-        // console.log("filtered:",root,newNodes,newLinks);
-
-        app._createDagreGraph(newNodes,newLinks,function(err,nodes,links) {
-            // console.log("selected:",nodes,links);
-        })
-    },
-
     launch: function() {
         app = this;
         app.filterItems = [];
@@ -733,6 +706,43 @@ Ext.define('CustomApp', {
 
         return "status-good";
 
+    },
+
+
+    filterSuccessor : function(combo,records,eOpts) {      
+        
+        var selected = records[0];
+        var root = _.find(app.nodes,function(node) { return node.id === selected.get("id");});
+
+        var newNodes = [];
+        var newLinks = [];
+
+        var walkTheLine = function(root, newNodes, newLinks) {
+            if (_.find(newNodes,function(n){return n.id===root.id;})===undefined)
+                newNodes.push(root);
+            var links = _.filter(app.links,function(link) { return link.source.id === root.id;});
+            _.each(links,function(link){ 
+                newLinks.push(link);
+                walkTheLine(link.target,newNodes,newLinks);
+            });
+        }
+
+        walkTheLine( root, newNodes, newLinks);
+
+
+
+
+        app._createDagreGraph(newNodes,newLinks,function(err,nodes,links) {
+
+            console.log("filtering graph viz");
+            app._createGraphViz(newNodes,newLinks,function(err,n,l) {
+
+            });
+            
+        })
     }
+
+
+
    
 });
