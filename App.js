@@ -143,6 +143,20 @@ Ext.define('CustomApp', {
 
     },
 
+    createIterationFilter : function(iterationIds) {
+
+        var filter = null;
+
+        _.each( iterationIds, function( iterationId, i ) {
+            var f = Ext.create('Rally.data.wsapi.Filter', {
+                    property : 'ObjectID', operator : '=', value : iterationId }
+            );
+            filter = (i===0) ? f : filter.or(f);
+        });
+        console.log("Iteration Filter:",filter.toString());
+        return filter;
+    },
+
     getIterationInformation : function( snapshots, callback) {
 
         // also check for epic iterations
@@ -153,27 +167,26 @@ Ext.define('CustomApp', {
         })));
 
         var iterations = _.map( snapshots, function(s) { return s.get("Iteration"); });
-
         iterations = _.union(iterations,epicIterations);
+        var iterationChunks = app.chunkArray(iterations);
+        console.log("Iterations:",iterations.length,iterationChunks.length);
 
-        console.log("iterations",iterations);
-
-        var readIteration = function( iid, callback) {
+        var readIteration = function( iids, callback) {
             var config = { 
                 model : "Iteration", 
                 fetch : ['Name','ObjectID','StartDate','EndDate'], 
-                filters : [{property : "ObjectID", operator : "=", value : iid}],
+                filters : app.createIterationFilter(iids),
                 context : { project : null}
             };
             app.wsapiQuery(config,callback);
         };
 
-        async.map( iterations, readIteration, function(err,results) {
-            app.iterations = _.map(results,function(r) { return r[0];});
+        async.map( iterationChunks, readIteration, function(err,results) {
+            app.iterations = _.flatten(_.map(results,function(r) { return r[0];}));
             app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
             console.log("iterations", app.iterations);
             // debugging
-            var epics = _.filter(snapshots,function(s) { return !_.isUndefined(s.get("LeafNodes")) && s.get("LeafNodes").length>0});
+            // var epics = _.filter(snapshots,function(s) { return !_.isUndefined(s.get("LeafNodes")) && s.get("LeafNodes").length>0});
             // _.each(epics,function(epic){
             //     console.log("max for epic:",epic.get("FormattedID"),app._getSnapshotIteration(epic));
             // })
@@ -232,26 +245,44 @@ Ext.define('CustomApp', {
         });
         return _.uniq(_.flatten(missing));
     },
+
+    chunkArray : function( arr ) {
+        var oidsArrays = [];
+        var i,j,chunk = 50;
+        for (i=0, j=arr.length; i<j; i+=chunk) {          
+            oidsArrays.push(arr.slice(i,i+chunk));
+        }
+        console.log("oidsArrays",oidsArrays);
+        return oidsArrays;
+
+    },
     
     findMissingSnapshots : function( snapshots, callback ) {
 
         var missing = app.getMissingSnapshots(snapshots);
-        console.log("missing:",missing);
+        console.log("missing:",missing,missing.length);
 
-        var config = {};
-        config.fetch = ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID','Children'];
-        config.hydrate =  ['_TypeHierarchy','ScheduleState'];
-        config.find = {
-            'ObjectID' : { "$in" : missing },
-            '__At' : 'current',
-            'Project' : { "$exists" : true},
-            'Project' : { "$ne" : null}
-        };
+        var oidsArrays = app.chunkArray(missing);
 
-        async.map([config],app._snapshotQuery,function(err,results) {
-            // console.log("missing snapshots:",results[0]);
-            _.each(results[0],function(s) {
-                snapshots.push(s);
+        var configs = _.map( oidsArrays, function(oArray) {
+            return {
+                fetch : ['ObjectID','_UnformattedID', '_TypeHierarchy', 'Predecessors','Successors','Blocked','ScheduleState','Name','Project','Iteration','FormattedID','Children'],
+                hydrate :  ['_TypeHierarchy','ScheduleState'],
+                find : {
+                    'ObjectID' : { "$in" : oArray },
+                    '__At' : 'current',
+                    'Project' : { "$exists" : true},
+                    'Project' : { "$ne" : null}
+                }
+            }
+        });
+
+        async.map(configs,app._snapshotQuery,function(err,results) {
+
+            _.each(results,function(result) {
+                _.each(result,function(s) {
+                    snapshots.push(s);
+                });
             });
             // callback(null,snapshots);
             if (app.getMissingSnapshots(snapshots).length>0)
