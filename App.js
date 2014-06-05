@@ -428,7 +428,7 @@ Ext.define('CustomApp', {
 
         var tpl = Ext.create('Ext.Template', 
         "<table class='graph-node'>" +
-            "<tr><td><a class='{id_style}' href='{id_ref}' target='_blank'>{id}</a> : {name}<span class='{state_class}'> [{state}] </span><span>{child_count}</span></td></tr>" +
+            "<tr><td><div style='width: 16em;'><a class='{id_style}' href='{id_ref}' target='_blank'>{id}</a> : {name}<span class='{state_class}'> [{state}] </span><span>{child_count}</span></div></td></tr>" +
             "<tr><td>Project:<span class='{project_class}'>{project}</span></td></tr>" +
             "<tr><td><span class='{date_class}'>{date}</span></td></tr>" +
         "</tr></table>", { compiled : true } );

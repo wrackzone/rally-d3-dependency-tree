@@ -28,10 +28,11 @@
 .svg {
   overflow : auto;
   height: 16000px;
-  width: 48000px;
+  width: 64000px;
 }
 
 .node rect {
+    width : 100px;
     stroke: #333;
     stroke-width: 1.5px;
     fill: #fff;
