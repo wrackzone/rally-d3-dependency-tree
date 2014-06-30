@@ -87,6 +87,13 @@ Ext.define('CustomApp', {
                           this._createGraphViz
                           ], 
             function(err,nodes,links){
+                if (err !== undefined && err !== null) {
+                    app.myMask.hide();
+                    console.log("err",err);
+                    Rally.ui.notify.Notifier.show({message: err});
+                    app.add(err);
+                }
+                
                 app.myMask.hide();
                 app.nodes = nodes;
                 app.links = links;
@@ -368,7 +375,11 @@ Ext.define('CustomApp', {
             config.find['ScheduleState'] = { "$ne" : "Accepted" };
 
         async.map([config],app._snapshotQuery,function(error,results) {
-            callback(null,results[0]);
+            console.log("snapshots:",results[0]);
+            if (results[0].length>0)
+                callback(null,results[0]);
+            else
+                callback("No Stories with dependencies in selected project scope",null);
         });
         
         
