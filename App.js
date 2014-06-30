@@ -74,8 +74,6 @@ Ext.define('CustomApp', {
                           ], 
             function(err,nodes,links){
                 app.myMask.hide();
-                // console.log("nodes",nodes); 
-                // console.log("links",links); 
                 app.nodes = nodes;
                 app.links = links;
             }
@@ -169,29 +167,24 @@ Ext.define('CustomApp', {
         var iterations = _.map( snapshots, function(s) { return s.get("Iteration"); });
         iterations = _.union(iterations,epicIterations);
         var iterationChunks = app.chunkArray(iterations);
-        console.log("Iterations:",iterations.length,iterationChunks.length);
+        console.log("Iteration Chunks:",iterations.length,iterationChunks.length);
 
         var readIteration = function( iids, callback) {
             var config = { 
                 model : "Iteration", 
                 fetch : ['Name','ObjectID','StartDate','EndDate'], 
-                filters : app.createIterationFilter(iids),
+                // filters : app.createIterationFilter(iids),
                 context : { project : null}
             };
             app.wsapiQuery(config,callback);
         };
 
         async.map( iterationChunks, readIteration, function(err,results) {
-            app.iterations = _.flatten(_.map(results,function(r) { return r[0];}));
-            app.iterations = _.reject(app.iterations,function(i) {return (i==="")||_.isUndefined(i);});
+            console.log("iteration results",results);
+            app.iterations = _.flatten(results);
+            // app.iterations = _.flatten( _.map(results,function(r) { return r[0]; }) );
+            // app.iterations = _.reject(app.iterations,function(i) { return (i==="") || _.isUndefined(i);});
             console.log("iterations", app.iterations);
-            // debugging
-            // var epics = _.filter(snapshots,function(s) { return !_.isUndefined(s.get("LeafNodes")) && s.get("LeafNodes").length>0});
-            // _.each(epics,function(epic){
-            //     console.log("max for epic:",epic.get("FormattedID"),app._getSnapshotIteration(epic));
-            // })
-            // debugging        
-
             callback(null,snapshots);
         });
     },
@@ -423,6 +416,7 @@ Ext.define('CustomApp', {
             if (node.status.length > 0)
                 date_class = node.status[0].status;
         }
+        console.log("date:",iterationEndDate);
 
         var childCount = node.snapshot.get('Children').length > 0 ? " (" + node.snapshot.get('Children').length + ")" : "";
 
@@ -684,6 +678,7 @@ Ext.define('CustomApp', {
 
     _getIteration : function(iid) {
 
+
         var iteration = _.find( app.iterations,
             function(it){
                 // console.log("iid",iid,it.get("ObjectID"));
@@ -715,6 +710,7 @@ Ext.define('CustomApp', {
             var i = leaf.get("Iteration");
             return app._iterationEndDate(i);
         });
+        // console.log("max",max);
         return max.get("Iteration");
     },
 
