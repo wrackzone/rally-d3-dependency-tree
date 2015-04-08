@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/wrackzone/rally-d3-dependency-tree.png?label=ready&title=Ready)](https://waffle.io/wrackzone/rally-d3-dependency-tree)
 D3 Dependency Visualization
 ===========================
 
