@@ -5,11 +5,11 @@
    "sdk": "2.0rc2",
    "javascript": [
       "App.js",
-      "https://boiling-savannah-4452.herokuapp.com/lib/d3.min.js",
-      "https://boiling-savannah-4452.herokuapp.com/lib/moment.min.js",
-      "https://boiling-savannah-4452.herokuapp.com/lib/async.js",
-      "https://boiling-savannah-4452.herokuapp.com/lib/dagre.min.js",
-      "https://boiling-savannah-4452.herokuapp.com/lib/dagre-d3.min.js"
+      "lib/d3.min.js",
+      "lib/moment.min.js",
+      "lib/async.js",
+      "lib/dagre.min.js",
+      "lib/dagre-d3.min.js"
    ],
    "css": [
       "app.css"

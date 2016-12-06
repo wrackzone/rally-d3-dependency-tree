@@ -133,7 +133,7 @@ Ext.define('CustomApp', {
 
     cleanUpSnapshots : function( snapshots, callback) {
 
-        console.log("unfiltered snapshots:",snapshots.length);
+        // console.log("unfiltered snapshots:",snapshots.length);
         var snaps = _.filter(snapshots,function(snapshot) {
             // make sure the project for the snapshot exists
             var project = _.find(app.projects, function(p) { 
@@ -158,7 +158,7 @@ Ext.define('CustomApp', {
             );
             filter = (i===0) ? f : filter.or(f);
         });
-        console.log("Iteration Filter:",filter.toString());
+        // console.log("Iteration Filter:",filter.toString());
         return filter;
     },
 
@@ -252,7 +252,7 @@ Ext.define('CustomApp', {
         for (i=0, j=arr.length; i<j; i+=chunk) {          
             oidsArrays.push(arr.slice(i,i+chunk));
         }
-        console.log("oidsArrays",oidsArrays);
+        // console.log("oidsArrays",oidsArrays);
         return oidsArrays;
 
     },
@@ -301,11 +301,11 @@ Ext.define('CustomApp', {
             return s.get("Children").length > 0
         });
 
-        console.log("epics",epicSnapshots);
+        // console.log("epics",epicSnapshots);
 
         async.map( epicSnapshots, app.leafNodeSnapshots,function(err,results) {
 
-            console.log("epic results:",results);
+            // console.log("epic results:",results);
             _.each( results, function( leafNodes,i) {
                 epicSnapshots[i].set("LeafNodes",leafNodes);
             });
@@ -361,7 +361,7 @@ Ext.define('CustomApp', {
             config.find['ScheduleState'] = { "$ne" : "Accepted" };
 
         async.map([config],app._snapshotQuery,function(error,results) {
-            console.log("snapshots:",results[0]);
+            // console.log("snapshots:",results[0]);
             if (results[0].length>0)
                 callback(null,results[0]);
             else
@@ -427,7 +427,7 @@ Ext.define('CustomApp', {
             if (node.status.length > 0)
                 date_class = node.status[0].status;
         }
-        console.log("date:",iterationEndDate);
+        // console.log("date:",iterationEndDate);
 
         var childCount = node.snapshot.get('Children').length > 0 ? " (" + node.snapshot.get('Children').length + ")" : "";
 
@@ -451,7 +451,6 @@ Ext.define('CustomApp', {
             date : iterationEndDate,
             child_count : childCount
         });
-
 
     },
     
@@ -616,6 +615,11 @@ Ext.define('CustomApp', {
                 var target = _.find(nodes,function(node) { return node.id == pred;});
                 // may be undefined if pred is out of project scope, need to figure out how to deal with that
                 if (!_.isUndefined(target)) {
+                    // var dupFound = _.find(links,function(link){
+                    //     return link.source.id === node.id && link.target.id === target.id;
+                    // });
+                    // console.log("dup:",dupFound,node.id,target.id);
+
                     links.push({ source : node, target : target  });
                 } else {
                     console.log("unable to find pred:",pred);
@@ -766,9 +770,6 @@ Ext.define('CustomApp', {
         }
 
         walkTheLine( root, newNodes, newLinks);
-
-
-
 
         app._createDagreGraph(newNodes,newLinks,function(err,nodes,links) {
 
