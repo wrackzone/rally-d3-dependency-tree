@@ -680,11 +680,13 @@ Ext.define('CustomApp', {
 
         _.each(nodes, function(node) {
             _.each( node.list, function(listNode,i) {
-                node.status = [];
+                if (!node.status) node.status = [];
+                
                 if (i > 0) {
                     var status = app._createStatusForNodes( node, listNode );
                     if ( status !== "status-good" )
                         node.status.push({ status : status, target : listNode });
+                    console.log("node status:",node);
                 }
             });
         });
